@@ -7,10 +7,19 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
+	_ "time/tzdata"
 )
 
 // Application contains editable tracking information, separate from the saved posting.
 type Application struct {
+	AppliedDate   string `json:"applied_date"`
+	ResponseDate  string `json:"response_date"`
+	ScreeningDate string `json:"screening_date"`
+	Round1Date    string `json:"round_1_date"`
+	Round2Date    string `json:"round_2_date"`
+	Round3Date    string `json:"round_3_date"`
+
 	Company        string `json:"company"`
 	Title          string `json:"title"`
 	Status         string `json:"status"`
@@ -20,6 +29,13 @@ type Application struct {
 }
 
 func (a Application) Validate() error {
+	for _, date := range []string{a.AppliedDate, a.ResponseDate, a.ScreeningDate, a.Round1Date, a.Round2Date, a.Round3Date} {
+		if date != "" {
+			if _, err := time.Parse("2006-01-02", date); err != nil {
+				return errors.New("Dates must be valid dates in YYYY-MM-DD format")
+			}
+		}
+	}
 	if strings.TrimSpace(a.Company) == "" || strings.TrimSpace(a.Title) == "" || len(a.Company) > 300 || len(a.Title) > 300 {
 		return errors.New("Company and job title are required (maximum 300 bytes each)")
 	}
@@ -73,6 +89,7 @@ func (s *Store) UpdateApplication(id string, a Application) (Job, error) {
 	}
 	a.Company = strings.TrimSpace(a.Company)
 	a.Title = strings.TrimSpace(a.Title)
+	a.DefaultDates(Today())
 	j.Application = a
 	return j, s.write(j)
 }
@@ -93,4 +110,39 @@ func (s *Store) Delete(id string) error {
 	}
 	defer dir.Close()
 	return dir.Sync()
+}
+
+// Today returns the calendar date in the user's configured local timezone.
+func Today() string {
+	location, err := time.LoadLocation("America/Denver")
+	if err != nil {
+		location = time.UTC
+	}
+	return time.Now().In(location).Format("2006-01-02")
+}
+
+// DefaultDates fills dates only for events represented by the application.
+func (a *Application) DefaultDates(today string) {
+	if a.AppliedDate == "" {
+		a.AppliedDate = today
+	}
+	if a.ResponseDate == "" && (a.Status == "interview" || a.Status == "not moving forward") {
+		a.ResponseDate = today
+	}
+	if a.Status == "interview" {
+		var date *string
+		switch a.InterviewStage {
+		case "initial screening":
+			date = &a.ScreeningDate
+		case "round 1":
+			date = &a.Round1Date
+		case "round 2":
+			date = &a.Round2Date
+		case "round 3":
+			date = &a.Round3Date
+		}
+		if date != nil && *date == "" {
+			*date = today
+		}
+	}
 }

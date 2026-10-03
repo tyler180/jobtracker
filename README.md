@@ -10,7 +10,7 @@ Requires Go 1.26 or newer:
 go run ./cmd/jobtracker
 ```
 
-Open http://127.0.0.1:8080. Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. The application form records your company name, job title, posting URL, and status: applied, waiting for response, not moving forward, or interview. Interview tracking includes initial screening, round 1, round 2, or round 3, notes on how it went, and next steps. All applications appear in a status-filterable overview with links to their locally saved descriptions. Change status directly using the dropdown in each row; selecting interview uses the previous stage or initial screening, and displays a stage dropdown. The Delete button asks for confirmation and removes both the application and its saved description. Edit application details to update any saved posting; existing archives appear as “Saved posting only” until tracking details are added. Interview notes remain saved when you switch to another status.
+Open http://127.0.0.1:8080. Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. The application form fills company (the provider board/tenant identifier, which you can correct) and job title automatically when you enter a posting URL; you can override it. A blank title at save time uses the title extracted from the posting. Previewing a URL does not save it. The application form records your company name, job title, posting URL, and status: applied, waiting for response, not moving forward, or interview. Interview tracking includes initial screening, round 1, round 2, or round 3, notes on how it went, and next steps. All applications appear in a status-filterable overview with links to their locally saved descriptions. Change status directly using the dropdown in each row; selecting interview uses the previous stage or initial screening, and displays a stage dropdown. The Delete button asks for confirmation and removes both the application and its saved description. Edit application details to update any saved posting; existing archives appear as “Saved posting only” until tracking details are added. Interview notes remain saved when you switch to another status.
 
 The archived company field currently means the provider's board/tenant identifier, not a verified legal company name. Saving a URL again retains the first snapshot, without overwriting its description or save date.
 
@@ -41,6 +41,8 @@ curl http://127.0.0.1:8080/api/jobs
 ```
 
 `POST /api/jobs` returns the snapshot with status 201 for a new posting, or 200 for an existing one. Invalid URL/JSON returns 400, unsupported content type 415, import capacity exceeded 429, provider failure 502, and archive failure 500. `GET /api/jobs` returns saved postings newest first. `GET /healthz` is a process health probe.
+
+`POST /api/jobs/preview` accepts a posting URL and returns extracted posting details without saving an archive. It uses the same provider restrictions and import limits as saving.
 
 To create a tracked application, include `company`, `title`, and `status` alongside `url` in `POST /api/jobs`. Optional fields are `interview_stage`, `interview_notes`, and `next_steps`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
 
@@ -77,3 +79,5 @@ kubectl kustomize deploy
 ```
 
 Tests cover provider payloads, URL validation, absent/malformed descriptions, readable conversion, persistent first-snapshot behavior, and HTTP request boundaries. GitHub Actions also builds the container. Live smoke verification on October 2, 2026 saved a public posting from Ashby's own board, Cloudflare's Greenhouse board, and NVIDIA's Workday site. This is compatibility evidence for those endpoints, not a guarantee for every tenant.
+
+Application dates use `YYYY-MM-DD`: `applied_date`, `response_date`, `screening_date`, `round_1_date`, `round_2_date`, and `round_3_date`. The form defaults the applied date to today in your browser's timezone. When dates are blank, the server defaults the applied date, the response date for interview/rejection status, and the selected interview stage date to today in America/Denver. Dates for events that have not occurred remain blank. Provided dates and dates from prior interview stages are retained. Existing files are not backfilled until edited; omitted date fields on updates preserve existing values.

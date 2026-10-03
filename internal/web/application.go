@@ -53,7 +53,7 @@ func decodeFields(w http.ResponseWriter, r *http.Request, allowed []string) (map
 	return out, nil
 }
 func applicationFrom(f map[string]string) jobs.Application {
-	return jobs.Application{Company: f["company"], Title: f["title"], Status: f["status"], InterviewStage: f["interview_stage"], InterviewNotes: f["interview_notes"], NextSteps: f["next_steps"]}
+	return jobs.Application{AppliedDate: f["applied_date"], ResponseDate: f["response_date"], ScreeningDate: f["screening_date"], Round1Date: f["round_1_date"], Round2Date: f["round_2_date"], Round3Date: f["round_3_date"], Company: f["company"], Title: f["title"], Status: f["status"], InterviewStage: f["interview_stage"], InterviewNotes: f["interview_notes"], NextSteps: f["next_steps"]}
 }
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
@@ -65,10 +65,37 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		fail(w, 415, "Use application/json without content encoding")
 		return
 	}
-	f, err := decodeFields(w, r, []string{"company", "title", "status", "interview_stage", "interview_notes", "next_steps"})
+	f, err := decodeFields(w, r, []string{"company", "title", "status", "interview_stage", "interview_notes", "next_steps", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"})
 	if err != nil {
 		fail(w, 400, err.Error())
 		return
+	}
+	previous, readErr := s.store.Get(r.PathValue("id"))
+	if errors.Is(readErr, os.ErrNotExist) {
+		fail(w, 404, "Saved job not found")
+		return
+	}
+	if readErr != nil {
+		fail(w, 500, "Could not read application")
+		return
+	}
+	if _, present := f["applied_date"]; !present {
+		f["applied_date"] = previous.Application.AppliedDate
+	}
+	if _, present := f["response_date"]; !present {
+		f["response_date"] = previous.Application.ResponseDate
+	}
+	if _, present := f["screening_date"]; !present {
+		f["screening_date"] = previous.Application.ScreeningDate
+	}
+	if _, present := f["round_1_date"]; !present {
+		f["round_1_date"] = previous.Application.Round1Date
+	}
+	if _, present := f["round_2_date"]; !present {
+		f["round_2_date"] = previous.Application.Round2Date
+	}
+	if _, present := f["round_3_date"]; !present {
+		f["round_3_date"] = previous.Application.Round3Date
 	}
 	a := applicationFrom(f)
 	if err := a.Validate(); err != nil {
