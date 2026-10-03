@@ -25,6 +25,7 @@ Configuration:
 
 - Ashby: `https://jobs.ashbyhq.com/{board}/{posting-id}` (also `/application`). Uses the public board API and selects the matching posting.
 - Greenhouse: `https://boards.greenhouse.io/{board}/jobs/{id}` or `https://job-boards.greenhouse.io/{board}/jobs/{id}`. Corresponding EU hosts are also accepted.
+- LinkedIn: `https://www.linkedin.com/jobs/view/{id}/` or a title/company slug ending in the numeric job ID. `linkedin.com` links are also accepted and canonicalized to the same numeric URL. Uses LinkedIn’s public guest posting endpoint, extracting the full **About the job** description, posting company, title, and location. No account or cookies are used. If LinkedIn requires sign-in, blocks the request, or omits the description, paste the About the job text and enter any missing company/title fields.
 - Upstart: `https://careers.upstart.com/jobs/{slug-and-UUID}`. Extracts the rendered title and description. If the site blocks automated requests, preview offers editable company/title suggestions from the URL and asks you to paste the description; it does not save an incomplete job.
 - Workday: `https://{tenant}.wd{number}.myworkdayjobs.com/{locale}/{site}/job/{location}/{slug}`. Locale is optional; `/apply` links are accepted. Uses the careers site's JSON detail endpoint.
 
