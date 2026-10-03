@@ -12,7 +12,8 @@ import (
 	"time"
 )
 
-// Store keeps immutable snapshots. The first successful import wins for a URL.
+// Store keeps immutable posting snapshots and editable application details.
+// The first successful import wins for a URL.
 // Use one server replica per archive directory.
 type Store struct {
 	dir string
@@ -41,38 +42,46 @@ func (s *Store) Save(j Job) (Job, bool, error) {
 		return Job{}, false, e
 	}
 	j.SavedAt = time.Now().UTC()
+	if err := s.write(j); err != nil {
+		return Job{}, false, err
+	}
+	return j, true, nil
+}
+
+func (s *Store) write(j Job) error {
+	path := filepath.Join(s.dir, j.ID+".json")
 	b, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {
-		return Job{}, false, err
+		return err
 	}
 	f, err := os.CreateTemp(s.dir, ".posting-*")
 	if err != nil {
-		return Job{}, false, err
+		return err
 	}
 	defer os.Remove(f.Name())
 	if _, err = f.Write(b); err != nil {
 		f.Close()
-		return Job{}, false, err
+		return err
 	}
 	if err = f.Sync(); err != nil {
 		f.Close()
-		return Job{}, false, err
+		return err
 	}
 	if err = f.Close(); err != nil {
-		return Job{}, false, err
+		return err
 	}
 	if err = os.Rename(f.Name(), path); err != nil {
-		return Job{}, false, err
+		return err
 	}
 	d, err := os.Open(s.dir)
 	if err != nil {
-		return Job{}, false, err
+		return err
 	}
 	defer d.Close()
 	if err = d.Sync(); err != nil {
-		return Job{}, false, err
+		return err
 	}
-	return j, true, nil
+	return nil
 }
 func (s *Store) List() ([]Job, error) {
 	s.mu.Lock()

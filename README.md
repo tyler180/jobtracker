@@ -10,7 +10,9 @@ Requires Go 1.26 or newer:
 go run ./cmd/jobtracker
 ```
 
-Open http://127.0.0.1:8080. Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. Company currently means the provider's board/tenant identifier, not a verified legal company name. Saving a URL again retains the first snapshot, without overwriting its description or save date.
+Open http://127.0.0.1:8080. Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. The application form records your company name, job title, posting URL, and status: applied, waiting for response, not moving forward, or interview. Interview tracking includes initial screening, round 1, round 2, or round 3, notes on how it went, and next steps. All applications appear in a status-filterable overview with links to their locally saved descriptions. Edit application details to update any saved posting; existing archives appear as “Saved posting only” until tracking details are added. Interview notes remain saved when you switch to another status.
+
+The archived company field currently means the provider's board/tenant identifier, not a verified legal company name. Saving a URL again retains the first snapshot, without overwriting its description or save date.
 
 Configuration:
 
@@ -39,6 +41,10 @@ curl http://127.0.0.1:8080/api/jobs
 ```
 
 `POST /api/jobs` returns the snapshot with status 201 for a new posting, or 200 for an existing one. Invalid URL/JSON returns 400, unsupported content type 415, import capacity exceeded 429, provider failure 502, and archive failure 500. `GET /api/jobs` returns saved postings newest first. `GET /healthz` is a process health probe.
+
+To create a tracked application, include `company`, `title`, and `status` alongside `url` in `POST /api/jobs`. Optional fields are `interview_stage`, `interview_notes`, and `next_steps`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
+
+`PUT /api/jobs/{id}/application` replaces tracking details using the same application fields (without `url`). Company and title are required and limited to 300 bytes each; notes and next steps are limited to 10,000 bytes each. Invalid fields return 400 and missing jobs return 404. `GET /jobs/{id}` displays the escaped, locally archived description without fetching the original posting.
 
 The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Requests are restricted to provider endpoints, with no proxies or redirects and no connections to private IP addresses. The app has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. Do not expose the service publicly before access controls are configured. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
 
