@@ -1,0 +1,43 @@
+name: Release Jobtracker
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, e.g. v0.1.0
+        required: true
+        type: string
+permissions:
+  contents: read
+  packages: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: test -z "$(gofmt -l cmd internal)"
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: go build -trimpath ./cmd/jobtracker
+      - run: |
+          python3 -m venv "$RUNNER_TEMP/manifest-tests"
+          "$RUNNER_TEMP/manifest-tests/bin/pip" install PyYAML==6.0.3
+          "$RUNNER_TEMP/manifest-tests/bin/python" -m unittest discover -s automation/tests
+  publish-and-propose:
+    needs: verify
+    uses: ./.github/workflows/reusable-release.yaml
+    with:
+      app-name: jobtracker
+      namespace: jobtracker
+      release-tag: ${{ inputs.tag || github.ref_name }}
+      app-id: ${{ vars.GITOPS_APP_ID }}
+    secrets:
+      gitops-app-private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
