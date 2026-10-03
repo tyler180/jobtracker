@@ -33,6 +33,8 @@ Tracking query parameters and fragments are removed from saved URLs. Custom comp
 
 Provider references: [Ashby public postings API](https://developers.ashbyhq.com/docs/public-job-posting-api), [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html).
 
+Open `/entries` (or choose **Read entries**) for a read-only page containing every saved description, application status, dates, interview notes, and next steps. Entries appear newest first and can be searched by their text.
+
 ## API
 
 ```sh

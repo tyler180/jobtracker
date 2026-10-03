@@ -28,6 +28,7 @@ func New(store *jobs.Store, importer Fetcher) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /{$}", s.home)
+	mux.HandleFunc("GET /entries", s.entries)
 	mux.HandleFunc("GET /api/jobs", s.list)
 	mux.HandleFunc("POST /api/jobs", s.save)
 	mux.HandleFunc("POST /api/jobs/preview", s.preview)
