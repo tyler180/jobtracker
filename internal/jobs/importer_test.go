@@ -16,6 +16,7 @@ func TestProviders(t *testing.T) {
 		{"ashby", "https://jobs.ashbyhq.com/acme/abc?utm_source=test", "https://api.ashbyhq.com/posting-api/job-board/acme", `{"jobs":[{"title":"Engineer","location":"Remote","jobUrl":"https://jobs.ashbyhq.com/acme/abc","descriptionHtml":"<p>Build things</p>"}]}`},
 		{"greenhouse", "https://boards.greenhouse.io/acme/jobs/123", "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123", `{"title":"Engineer","content":"&lt;p&gt;Build things&lt;/p&gt;","location":{"name":"Remote"}}`},
 		{"workday", "https://acme.wd5.myworkdayjobs.com/en-US/External/job/Denver/Engineer_R123/apply", "https://acme.wd5.myworkdayjobs.com/wday/cxs/acme/External/job/Denver/Engineer_R123", `{"jobPostingInfo":{"title":"Engineer","jobDescription":"<p>Build things</p>","location":"Remote"}}`},
+		{"upstart", "https://careers.upstart.com/jobs/senior-data-platform-engineer-076371c4-e43b-4489-8132-a304724cc54f?utm_source=test", "https://careers.upstart.com/jobs/senior-data-platform-engineer-076371c4-e43b-4489-8132-a304724cc54f", `<h1>Engineer</h1><div class="job-description"><p>Build things</p></div><footer>Cookies</footer>`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -36,7 +37,7 @@ func TestProviders(t *testing.T) {
 	}
 }
 func TestRejectURLs(t *testing.T) {
-	for _, u := range []string{"http://jobs.ashbyhq.com/acme/abc", "https://jobs.ashbyhq.com.evil.test/acme/abc", "https://user:pass@jobs.ashbyhq.com/acme/abc", "https://jobs.ashbyhq.com:444/acme/abc", "https://localhost/job/a", "https://acme.myworkdayjobs.com/site/job/a", "https://jobs.ashbyhq.com/acme/../abc", "https://jobs.ashbyhq.com/acme/%2Fabc", "https://jobs.ashbyhq.com/acme"} {
+	for _, u := range []string{"http://jobs.ashbyhq.com/acme/abc", "https://jobs.ashbyhq.com.evil.test/acme/abc", "https://user:pass@jobs.ashbyhq.com/acme/abc", "https://jobs.ashbyhq.com:444/acme/abc", "https://localhost/job/a", "https://acme.myworkdayjobs.com/site/job/a", "https://jobs.ashbyhq.com/acme/../abc", "https://jobs.ashbyhq.com/acme/%2Fabc", "https://jobs.ashbyhq.com/acme", "https://careers.upstart.com.evil.test/jobs/abc", "https://careers.upstart.com/jobs/abc", "https://careers.upstart.com/jobs/senior-data-platform-engineer-076371c4-e43b-4489-8132-a304724cc54f/apply"} {
 		if _, err := parse(u); err == nil {
 			t.Errorf("accepted %s", u)
 		}

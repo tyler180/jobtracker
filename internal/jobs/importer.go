@@ -16,7 +16,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-var ErrURL = errors.New("Automatic import supports direct HTTPS posting URLs from Ashby, Greenhouse, or Workday. For other sites, enter the company and job title and paste the description")
+var ErrURL = errors.New("Automatic import supports direct HTTPS posting URLs from Ashby, Greenhouse, Workday, or Upstart. For other sites, paste the description and check the company and job title")
 var segment = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type Job struct {
@@ -48,6 +48,12 @@ func parse(raw string) (target, error) {
 	}
 	t := target{}
 	switch {
+	case host == "careers.upstart.com":
+		if len(p) != 2 || p[0] != "jobs" || !upstartID.MatchString(p[1]) {
+			return t, ErrURL
+		}
+		canonical := "https://careers.upstart.com/jobs/" + p[1]
+		t = target{"upstart", "Upstart", p[1], canonical, canonical}
 	case host == "jobs.ashbyhq.com":
 		if len(p) != 2 && !(len(p) == 3 && p[2] == "application") {
 			return t, ErrURL
@@ -132,6 +138,9 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 		return Job{}, err
 	}
 	req.Header.Set("Accept", "application/json")
+	if t.provider == "upstart" {
+		req.Header.Set("Accept", "text/html")
+	}
 	req.Header.Set("User-Agent", "JobTracker/0.1")
 	res, err := i.Client.Do(req)
 	if err != nil {
@@ -150,6 +159,10 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 	}
 	j := Job{Provider: t.provider, Company: t.company, URL: t.canonical}
 	switch t.provider {
+	case "upstart":
+		if err := importUpstart(body, &j); err != nil {
+			return Job{}, err
+		}
 	case "ashby":
 		var data struct {
 			Jobs []struct{ Title, Location, DescriptionHTML, DescriptionPlain, JobURL string }
