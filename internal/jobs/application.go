@@ -76,3 +76,21 @@ func (s *Store) UpdateApplication(id string, a Application) (Job, error) {
 	j.Application = a
 	return j, s.write(j)
 }
+
+// Delete removes both the archived posting and its application details.
+func (s *Store) Delete(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !validID.MatchString(id) {
+		return os.ErrNotExist
+	}
+	if err := os.Remove(filepath.Join(s.dir, id+".json")); err != nil {
+		return err
+	}
+	dir, err := os.Open(s.dir)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
+}
