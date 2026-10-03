@@ -20,15 +20,16 @@ var ErrURL = errors.New("use a direct HTTPS job posting URL from Ashby, Greenhou
 var segment = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type Job struct {
-	ID              string    `json:"id"`
-	Provider        string    `json:"provider"`
-	URL             string    `json:"url"`
-	Title           string    `json:"title"`
-	Company         string    `json:"company"`
-	Location        string    `json:"location"`
-	DescriptionHTML string    `json:"description_html"`
-	DescriptionText string    `json:"description_text"`
-	SavedAt         time.Time `json:"saved_at"`
+	Application     Application `json:"application"`
+	ID              string      `json:"id"`
+	Provider        string      `json:"provider"`
+	URL             string      `json:"url"`
+	Title           string      `json:"title"`
+	Company         string      `json:"company"`
+	Location        string      `json:"location"`
+	DescriptionHTML string      `json:"description_html"`
+	DescriptionText string      `json:"description_text"`
+	SavedAt         time.Time   `json:"saved_at"`
 }
 
 type target struct{ provider, company, id, canonical, endpoint string }
