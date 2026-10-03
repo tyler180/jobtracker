@@ -1,32 +1,27 @@
-# Jobtracker releases
+# Jobtracker continuous delivery
 
-The reusable release workflow and its tests now live in [tyler180/github-workflows](https://github.com/tyler180/github-workflows). Jobtracker owns its app tests, Dockerfile, initial deployment manifests, and `.github/workflows/release.yaml` caller.
+After a successful **Test** run for a push to `main`, **Release Jobtracker** rechecks the exact commit and calls `tyler180/github-workflows/.github/workflows/reusable-release.yaml@v2.0.0`.
 
-The caller uses:
+The shared workflow serializes releases, skips older queued commits once `main` has moved, increments only the patch component of the latest semantic tag, and publishes the image with SBOM and provenance. It records the tag only after publishing successfully. Retries reuse an existing commit tag and registry digest instead of replacing a published image.
 
-```yaml
-uses: tyler180/github-workflows/.github/workflows/reusable-release.yaml@v1
-```
+It opens or updates the `automation/jobtracker` PR in `talos-gitops`, using a scoped GitHub App token. GitOps CI renders the manifests and verifies that the bot's PR changes only the Jobtracker Deployment image, with an advancing semantic version and SHA256 digest. Changes to storage, routing, environment, other apps, or the Argo registration fail unattended promotion. That policy is loaded from the PR's trusted base commit. The merge job accepts only `tyler180-gitops-bot[bot]` PRs from the expected same-repository branch and locks the merge to the tested head commit; it does not bypass repository protections.
 
-## Setup order
+Once the GitOps PR merges, Argo automatically reconciles Jobtracker. Self-healing and bounded sync retries are enabled for this app. Pruning, empty-app deletion, Force, and Replace are not enabled. Other Argo applications, including the root app, keep their existing sync policies. CI does not need Kubernetes, Talos, or Argo credentials.
 
-1. Commit and push the shared workflow changes in `github-workflows`. Run its **Validate shared GitOps release** workflow. Publish the shared **`v1`** tag after those checks pass. That tag must exist before Jobtracker's release workflow can run.
-2. Commit and push Jobtracker's updated caller and ensure its CI passes.
-3. Create a GitHub App installed only on `tyler180/talos-gitops`, with **Contents: Read and write** and **Pull requests: Read and write**. Set the App ID as Jobtracker's Actions variable `GITOPS_APP_ID`, and its private key as the Actions secret `GITOPS_APP_PRIVATE_KEY`. Do not commit the private key.
-4. If `github-workflows` is private, configure its Actions settings to allow Jobtracker to use its reusable workflows.
-5. Create an intentional Jobtracker release tag from the tested default branch:
+## Configuration
 
-```sh
-git tag -a v0.1.0 -m 'Release Jobtracker v0.1.0'
-git push origin v0.1.0
-```
+- Jobtracker Actions variable `GITOPS_APP_ID` and secret `GITOPS_APP_PRIVATE_KEY` identify the existing GitHub App installed on `tyler180/talos-gitops`, with contents and pull-request write permissions.
+- The release caller grants `contents: write` for automatic tag creation and `packages: write` for GHCR publication.
+- GitOps CI's merge job grants its own repository token contents and pull-request write permissions. App changes still enter Jobtracker through normal PRs and tests.
+- Publish the tested shared-workflow tag `v2.0.0` before merging this caller. Merge the GitOps validation/policy change first, and reconcile only the Jobtracker Application through the root app once to enable automatic sync.
+- The Jobtracker GHCR package must be public or have configured pull credentials.
 
-The shared workflow publishes `ghcr.io/tyler180/jobtracker:v0.1.0` for `linux/amd64`, captures the digest, renders the GitOps proposal, and opens or updates the `automation/jobtracker` PR in `talos-gitops`. Make the GHCR package public after its first publication, or configure image-pull credentials before syncing.
+## Versions, retries, and rollback
 
-The first proposal adds `applications/jobtracker/`, `infrastructure/applications/jobtracker.yaml`, and its entry in `infrastructure/kustomization.yaml`. Later releases update the Deployment image while preserving cluster settings. Source `deploy/` changes are copied only for initial onboarding; later infrastructure changes belong in GitOps.
+Merging an app change into `main` needs no manual application tag, deployment PR merge, or Argo sync. Major and minor bumps remain intentional: push an existing `vMAJOR.MINOR.PATCH` tag on default-branch history. A tag-triggered release rechecks that source commit before publishing. If a main commit already has a semantic tag, automatic release reuses it.
 
-Review and merge the GitOps PR, manually sync `root` and then `jobtracker`, and keep Prune, Force, and Replace unchecked. Verify the PVC, pod readiness, real posting import, and persistence across pod replacement before adding an authenticated route. CI has no cluster credentials and does not sync Argo.
+To retry, run **Release Jobtracker** from `main` with the existing tag. Leave the tag blank to test and release the latest `main` commit. Failed CI never triggers automatic publication; PR and fork workflow results cannot trigger privileged automatic releases.
 
-To retry a release, run **Release Jobtracker** from the default branch and enter the existing app tag. Shared workflow versions (`v1`) and application versions (`v0.1.0`) are independent.
+For rollback, submit and merge a normal GitOps PR restoring a previous digest-pinned image. The unattended bot policy rejects downgrades; human GitOps PRs remain available for deliberate rollback and infrastructure changes. Argo will reconcile the merged rollback automatically. To pause deployments, disable Jobtracker's `spec.syncPolicy.automated.enabled` in GitOps, reconcile that Application through root, and disable the app release workflow if publication should also pause.
 
-See the [shared workflow setup guide](https://github.com/tyler180/github-workflows/blob/main/README.md) for configuration and reuse by other apps.
+A successful release workflow means the image and proposal were published. GitOps CI reports merge success separately; Argo reports sync and readiness. Verify the deployed image, Argo health, HTTP availability, and archive persistence when initially enabling this pipeline.

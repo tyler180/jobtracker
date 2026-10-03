@@ -1,24 +1,33 @@
 name: Release Jobtracker
 on:
+  workflow_run:
+    workflows: [Test]
+    branches: [main]
+    types: [completed]
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag, e.g. v0.1.0
-        required: true
+        description: Existing release tag; leave blank to release the latest main commit
+        required: false
         type: string
 permissions:
-  contents: read
+  contents: write
   packages: write
 jobs:
   verify:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref_name }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.tag || github.ref_name }}
           persist-credentials: false
       - uses: actions/setup-go@v5
         with:
@@ -27,13 +36,16 @@ jobs:
       - run: go test -race ./...
       - run: go vet ./...
       - run: go build -trimpath ./cmd/jobtracker
+      - run: docker build -t jobtracker:release-test .
   publish-and-propose:
     needs: verify
-    uses: tyler180/github-workflows/.github/workflows/reusable-release.yaml@v1
+    uses: tyler180/github-workflows/.github/workflows/reusable-release.yaml@v2.0.0
     with:
       app-name: jobtracker
       namespace: jobtracker
-      release-tag: ${{ inputs.tag || github.ref_name }}
+      release-ref: ${{ github.event.workflow_run.head_sha || inputs.tag || github.ref_name }}
+      release-tag: ${{ inputs.tag || (github.event_name == 'push' && github.ref_name) || '' }}
+      automatic-patch: ${{ github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && inputs.tag == '') }}
       app-id: ${{ vars.GITOPS_APP_ID }}
     secrets:
       gitops-app-private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
