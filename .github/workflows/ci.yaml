@@ -6,8 +6,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
       - run: test -z "$(gofmt -l cmd internal)"
@@ -15,3 +15,8 @@ jobs:
       - run: go vet ./...
       - run: go build -trimpath ./cmd/jobtracker
       - run: docker build -t jobtracker:test .
+      - name: Verify GitOps proposal generator
+        run: |
+          python3 -m venv "$RUNNER_TEMP/manifest-tests"
+          "$RUNNER_TEMP/manifest-tests/bin/pip" install PyYAML==6.0.3
+          "$RUNNER_TEMP/manifest-tests/bin/python" -m unittest discover -s automation/tests

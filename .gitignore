@@ -1,3 +1,5 @@
 /data/
 /jobtracker
 .env
+
+__pycache__/
