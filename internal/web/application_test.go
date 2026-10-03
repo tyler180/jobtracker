@@ -70,3 +70,58 @@ func TestApplicationLifecycle(t *testing.T) {
 		t.Fatal("Duplicate import overwrote application")
 	}
 }
+
+func TestDeleteJob(t *testing.T) {
+	dir := t.TempDir()
+	store, err := jobs.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, _, err := store.Save(jobs.Job{URL: "https://jobs.ashbyhq.com/acme/remove", Title: "Remove me"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, _, err := store.Save(jobs.Job{URL: "https://jobs.ashbyhq.com/acme/keep", Title: "Keep me"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := New(store, &fake{})
+	request := func(id, site string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("DELETE", "/api/jobs/"+id, nil)
+		r.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	if w := request(removed.ID, "cross-site"); w.Code != 403 {
+		t.Fatal(w.Code, w.Body)
+	}
+	if _, err := store.Get(removed.ID); err != nil {
+		t.Fatal("cross-site request removed job", err)
+	}
+	if w := request("invalid", ""); w.Code != 404 {
+		t.Fatal(w.Code, w.Body)
+	}
+	if w := request(removed.ID, "same-origin"); w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
+	if w := request(removed.ID, ""); w.Code != 404 {
+		t.Fatal(w.Code, w.Body)
+	}
+	reopened, err := jobs.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := reopened.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].ID != kept.ID {
+		t.Fatalf("Unexpected remaining archive: %+v", list)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/jobs/"+removed.ID, nil))
+	if w.Code != 404 {
+		t.Fatal(w.Code, w.Body)
+	}
+}

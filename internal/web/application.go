@@ -102,3 +102,19 @@ func (s *Server) description(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	descriptionPage.Execute(w, j)
 }
+
+func (s *Server) delete(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+		fail(w, http.StatusForbidden, "Cross-site requests are not allowed")
+		return
+	}
+	if err := s.store.Delete(r.PathValue("id")); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			fail(w, http.StatusNotFound, "Saved job not found")
+		} else {
+			fail(w, http.StatusInternalServerError, "Could not delete job")
+		}
+		return
+	}
+	reply(w, http.StatusOK, map[string]bool{"deleted": true})
+}

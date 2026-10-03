@@ -32,6 +32,7 @@ func New(store *jobs.Store, importer Fetcher) http.Handler {
 	mux.HandleFunc("POST /api/jobs", s.save)
 	mux.HandleFunc("PUT /api/jobs/{id}/application", s.update)
 	mux.HandleFunc("GET /jobs/{id}", s.description)
+	mux.HandleFunc("DELETE /api/jobs/{id}", s.delete)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
