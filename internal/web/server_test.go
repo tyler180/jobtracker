@@ -12,7 +12,7 @@ type fake struct{ calls int }
 
 func (f *fake) Fetch(context.Context, string) (jobs.Job, error) {
 	f.calls++
-	return jobs.Job{URL: "https://jobs.ashbyhq.com/acme/abc", Title: "Engineer", DescriptionText: "Build"}, nil
+	return jobs.Job{URL: "https://jobs.ashbyhq.com/acme/abc", Title: "Engineer", Company: "acme", DescriptionText: "Build"}, nil
 }
 func TestSaveBoundary(t *testing.T) {
 	s, err := jobs.Open(t.TempDir())

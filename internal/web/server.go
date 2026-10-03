@@ -30,6 +30,7 @@ func New(store *jobs.Store, importer Fetcher) http.Handler {
 	mux.HandleFunc("GET /{$}", s.home)
 	mux.HandleFunc("GET /api/jobs", s.list)
 	mux.HandleFunc("POST /api/jobs", s.save)
+	mux.HandleFunc("POST /api/jobs/preview", s.preview)
 	mux.HandleFunc("PUT /api/jobs/{id}/application", s.update)
 	mux.HandleFunc("GET /jobs/{id}", s.description)
 	mux.HandleFunc("DELETE /api/jobs/{id}", s.delete)
@@ -59,6 +60,12 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	reply(w, 200, v)
 }
 func (s *Server) save(w http.ResponseWriter, r *http.Request) {
+	s.importPosting(w, r, false)
+}
+func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
+	s.importPosting(w, r, true)
+}
+func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview bool) {
 	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 		fail(w, 403, "Cross-site requests are not allowed")
 		return
@@ -68,7 +75,11 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 		fail(w, 415, "Use application/json without content encoding")
 		return
 	}
-	fields, err := decodeFields(w, r, []string{"url", "company", "title", "status", "interview_stage", "interview_notes", "next_steps"})
+	allowed := []string{"url", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
+	if preview {
+		allowed = []string{"url"}
+	}
+	fields, err := decodeFields(w, r, allowed)
 	if err != nil || strings.TrimSpace(fields["url"]) == "" {
 		fail(w, 400, "Expected a single JSON object containing url and valid application fields")
 		return
@@ -78,7 +89,14 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 	tracking := len(fields) > 1
 	if tracking {
 		application = applicationFrom(fields)
-		if err := application.Validate(); err != nil {
+		candidate := application
+		if strings.TrimSpace(candidate.Company) == "" {
+			candidate.Company = "Pending imported company"
+		}
+		if strings.TrimSpace(candidate.Title) == "" {
+			candidate.Title = "Pending imported title"
+		}
+		if err := candidate.Validate(); err != nil {
 			fail(w, 400, err.Error())
 			return
 		}
@@ -100,7 +118,22 @@ func (s *Server) save(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if preview {
+		reply(w, 200, j)
+		return
+	}
 	if tracking {
+		if strings.TrimSpace(application.Company) == "" {
+			application.Company = strings.TrimSpace(j.Company)
+		}
+		if strings.TrimSpace(application.Title) == "" {
+			application.Title = strings.TrimSpace(j.Title)
+		}
+		if err := application.Validate(); err != nil {
+			fail(w, 400, "Could not extract valid company and job title fields. Enter them manually.")
+			return
+		}
+		application.DefaultDates(jobs.Today())
 		j.Application = application
 	}
 	j, created, err := s.store.Save(j)
