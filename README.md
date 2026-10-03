@@ -68,9 +68,9 @@ The `/data` volume must be writable by UID/GID 65532. Existing bind-mounted dire
 
 `deploy/` contains a Kustomize-ready Namespace, single-replica Deployment, Service, and 1 GiB PVC using the cluster's `nas-nfs` storage class. The deployment uses `Recreate` to avoid concurrent archive writers and runs as non-root with a read-only root filesystem. NFS permissions and directory-sync semantics must be verified on the actual storage backend.
 
-To integrate with `tyler180/talos-gitops`, follow the [reusable release workflow setup](docs/release-workflow.md). After configuring the GitHub App, an intentional version tag publishes the image and opens a PR with the digest-pinned app manifests and Argo registration. Review and merge the PR, manually sync Argo, and verify archive persistence before adding an authenticated route.
+To integrate with `tyler180/talos-gitops`, follow the [reusable release workflow setup](docs/release-workflow.md). After configuring the GitHub App, a successful default-branch change automatically publishes the next patch version and opens a digest-pinned deployment PR. GitOps CI automatically merges validated image-only Jobtracker promotions, and Argo syncs Jobtracker without pruning. Major/minor version tags and infrastructure changes remain intentional. See the release guide for the one-time activation and rollback procedure.
 
-The example image has not been published. The release workflow can publish it and open a GitOps PR after its GitHub App credentials are configured; it never syncs the cluster. The Service is internal only; a public route and SSO are intentionally a separate deployment step.
+The release workflow publishes to GHCR and proposes GitOps changes; Argo performs cluster reconciliation. CI does not receive cluster credentials. Authentication and public routing remain configured in GitOps independently of the application release pipeline.
 
 ## Verification
 
