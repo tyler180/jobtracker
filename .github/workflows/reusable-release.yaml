@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out release source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.release-tag }}
           fetch-depth: 0
@@ -87,16 +87,16 @@ jobs:
           git merge-base --is-ancestor HEAD "refs/remotes/origin/$DEFAULT_BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up image builder
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@v3
       - name: Sign in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish release image
         id: image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@v6
         with:
           context: source
           push: true
@@ -110,7 +110,7 @@ jobs:
           sbom: true
       - name: Create scoped GitOps token
         id: gitops-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ inputs.app-id }}
           private-key: ${{ secrets.gitops-app-private-key }}
@@ -119,7 +119,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Check out GitOps base
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.gitops-repository }}
           ref: ${{ inputs.gitops-branch }}
@@ -249,7 +249,7 @@ jobs:
           kubectl kustomize "gitops/applications/$APP_NAME" > "$RUNNER_TEMP/app.yaml"
           kubectl kustomize gitops/infrastructure > "$RUNNER_TEMP/infrastructure.yaml"
       - name: Open or update GitOps PR
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.gitops-token.outputs.token }}
           path: gitops

@@ -55,7 +55,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: tyler180/jobtracker/.github/workflows/reusable-release.yaml@<COMMIT_SHA>
+    uses: tyler180/jobtracker/.github/workflows/reusable-release.yaml@v0.1.0
     with:
       app-name: another-app
       namespace: another-app
@@ -66,7 +66,7 @@ jobs:
       gitops-app-private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
 ```
 
-Replace `<COMMIT_SHA>` with the committed workflow revision. Configure the App ID and secret in each caller repository, or share them with authorized repositories through organization settings. Optional inputs are `gitops-repository`, `gitops-branch`, and `platforms`. The image name comes from the caller's repository name. Other architectures require a builder capable of building those platforms; the default is the existing cluster's amd64 target.
+Use a published Jobtracker release tag that contains the reusable workflow, such as `v0.1.0`. Configure the App ID and secret in each caller repository, or share them with authorized repositories through organization settings. Optional inputs are `gitops-repository`, `gitops-branch`, and `platforms`. The image name comes from the caller's repository name. Other architectures require a builder capable of building those platforms; the default is the existing cluster's amd64 target.
 
 The workflow embeds the tested promotion helper so callers do not need to check out its hosting repository. When changing `automation/promote.py`, update the embedded copy in the **Prepare GitOps proposal** step; the test suite rejects any mismatch.
 
