@@ -75,7 +75,7 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		fail(w, 415, "Use application/json without content encoding")
 		return
 	}
-	allowed := []string{"url", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
+	allowed := []string{"url", "description_text", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
 	if preview {
 		allowed = []string{"url"}
 	}
@@ -86,7 +86,12 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 	}
 	raw := fields["url"]
 	var application jobs.Application
-	tracking := len(fields) > 1
+	tracking := false
+	for key := range fields {
+		if key != "url" && key != "description_text" {
+			tracking = true
+		}
+	}
 	if tracking {
 		application = applicationFrom(fields)
 		candidate := application
@@ -108,13 +113,22 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		fail(w, 429, "Too many imports; try again shortly")
 		return
 	}
-	j, err := s.importer.Fetch(r.Context(), raw)
+	var j jobs.Job
+	if strings.TrimSpace(fields["description_text"]) != "" {
+		j, err = jobs.Manual(raw, fields["company"], fields["title"], fields["description_text"])
+		if err != nil {
+			fail(w, 400, err.Error())
+			return
+		}
+	} else {
+		j, err = s.importer.Fetch(r.Context(), raw)
+	}
 	if err != nil {
 		if errors.Is(err, jobs.ErrURL) {
 			fail(w, 400, err.Error())
 		} else {
 			slog.Warn("import failed", "error", err)
-			fail(w, 502, "Could not retrieve the posting. Check that it is still public and available.")
+			fail(w, 502, "Could not retrieve the posting. Check that it is still public and available, or paste its description and enter the company and job title.")
 		}
 		return
 	}

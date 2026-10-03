@@ -16,7 +16,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-var ErrURL = errors.New("use a direct HTTPS job posting URL from Ashby, Greenhouse, or Workday")
+var ErrURL = errors.New("Automatic import supports direct HTTPS posting URLs from Ashby, Greenhouse, or Workday. For other sites, enter the company and job title and paste the description")
 var segment = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type Job struct {

@@ -13,7 +13,13 @@ import (
 )
 
 func decodeFields(w http.ResponseWriter, r *http.Request, allowed []string) (map[string]string, error) {
-	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768))
+	limit := int64(32768)
+	for _, name := range allowed {
+		if name == "description_text" {
+			limit = 128 << 10
+		}
+	}
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	t, err := d.Token()
 	if err != nil || t != json.Delim('{') {
 		return nil, errors.New("Invalid JSON object")
