@@ -63,7 +63,7 @@ func TestPastedDescription(t *testing.T) {
 	if fetcher.calls != 0 {
 		t.Fatal("pasted description fetched source URL")
 	}
-	for _, change := range []map[string]string{{"title": ""}, {"company": ""}, {"description_text": strings.Repeat("x", 64001)}, {"url": "javascript:alert(1)"}, {"url": "https://user:pass@example.com/job"}} {
+	for _, change := range []map[string]string{{"title": strings.Repeat("x", 301)}, {"company": strings.Repeat("x", 301)}, {"url": "https://example.com/job", "company": "", "title": ""}, {"description_text": strings.Repeat("x", 64001)}, {"url": "javascript:alert(1)"}, {"url": "https://user:pass@example.com/job"}} {
 		invalid := map[string]string{}
 		for k, v := range fields {
 			invalid[k] = v
@@ -73,7 +73,7 @@ func TestPastedDescription(t *testing.T) {
 		}
 		w = send("POST", "/api/jobs", invalid)
 		if w.Code != 400 {
-			t.Fatalf("invalid manual fields: %d %s", w.Code, w.Body)
+			t.Fatalf("invalid manual fields returned %d", w.Code)
 		}
 	}
 	if fetcher.calls != 0 {

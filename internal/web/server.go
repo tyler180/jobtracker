@@ -77,7 +77,7 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 	}
 	allowed := []string{"url", "description_text", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
 	if preview {
-		allowed = []string{"url"}
+		allowed = []string{"url", "description_text"}
 	}
 	fields, err := decodeFields(w, r, allowed)
 	if err != nil || strings.TrimSpace(fields["url"]) == "" {
@@ -92,7 +92,7 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 			tracking = true
 		}
 	}
-	if tracking {
+	if tracking && !preview {
 		application = applicationFrom(fields)
 		candidate := application
 		if strings.TrimSpace(candidate.Company) == "" {
@@ -115,7 +115,11 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 	}
 	var j jobs.Job
 	if strings.TrimSpace(fields["description_text"]) != "" {
-		j, err = jobs.Manual(raw, fields["company"], fields["title"], fields["description_text"])
+		if preview {
+			j, err = jobs.ManualPreview(raw, fields["description_text"])
+		} else {
+			j, err = jobs.Manual(raw, fields["company"], fields["title"], fields["description_text"])
+		}
 		if err != nil {
 			fail(w, 400, err.Error())
 			return
@@ -124,6 +128,18 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		j, err = s.importer.Fetch(r.Context(), raw)
 	}
 	if err != nil {
+		// A blocked Upstart request can still offer editable URL-derived fields.
+		// This is preview metadata only, never a saved posting or description.
+		if preview {
+			fallback, fallbackErr := jobs.ManualPreview(raw, "")
+			if fallbackErr == nil && fallback.Company == "Upstart" {
+				reply(w, 200, struct {
+					jobs.Job
+					DescriptionRequired bool `json:"description_required"`
+				}{fallback, true})
+				return
+			}
+		}
 		if errors.Is(err, jobs.ErrURL) {
 			fail(w, 400, err.Error())
 		} else {
