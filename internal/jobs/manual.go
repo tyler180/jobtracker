@@ -43,6 +43,10 @@ func ManualPreview(raw, description string) (Job, error) {
 	u.Host = strings.ToLower(u.Host)
 	u.RawQuery, u.Fragment, u.RawFragment = "", "", ""
 	u.ForceQuery = false
+	if target, err := parse(raw); err == nil && target.provider == "linkedin" {
+		// Numeric and slug URLs must share the same first-snapshot identity.
+		u, _ = url.Parse(target.canonical)
+	}
 	company, title := inferDescription(description)
 	if t, err := parse(raw); err == nil && t.provider == "upstart" {
 		if company == "" {
@@ -66,6 +70,7 @@ var upstartID = regexp.MustCompile(`-[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-
 var titleLabel = regexp.MustCompile(`(?i)^(?:job title|position|role|title)\s*:\s*(.+)$`)
 var companyLabel = regexp.MustCompile(`(?i)^(?:company(?: name)?\s*:\s*|about\s+)(.+)$`)
 var roleHeading = regexp.MustCompile(`(?i)\b(engineer|developer|manager|analyst|architect|designer|scientist|specialist|director|administrator|consultant)\b`)
+var roleAbbreviation = regexp.MustCompile(`(?i)^(?:sr|jr)\.\s+`)
 var proseRole = regexp.MustCompile(`(?i)\bas (?:a|an) ([^\n,.]{1,150}?) (?:joining|at|you will)\b`)
 
 func inferDescription(description string) (company, title string) {
@@ -77,7 +82,7 @@ func inferDescription(description string) (company, title string) {
 		}
 		if m := companyLabel.FindStringSubmatch(line); m != nil && len(m[1]) <= 80 && company == "" {
 			v := strings.TrimSpace(m[1])
-			if !strings.EqualFold(v, "the role") && !strings.EqualFold(v, "the team") && !strings.EqualFold(v, "the company") && !strings.EqualFold(v, "us") && !strings.EqualFold(v, "you") {
+			if !strings.EqualFold(v, "the role") && !strings.EqualFold(v, "the job") && !strings.EqualFold(v, "the team") && !strings.EqualFold(v, "the company") && !strings.EqualFold(v, "us") && !strings.EqualFold(v, "you") {
 				company = v
 			}
 		}
@@ -85,10 +90,10 @@ func inferDescription(description string) (company, title string) {
 	if title == "" {
 		for _, line := range lines {
 			line = strings.Trim(strings.TrimSpace(line), "#* ")
-			if line == "" || strings.EqualFold(line, "Kiosk mode") {
+			if line == "" || strings.EqualFold(line, "Kiosk mode") || strings.EqualFold(line, "About the job") {
 				continue
 			}
-			if len(line) <= 150 && roleHeading.MatchString(line) && !strings.ContainsAny(line, ".:!?") {
+			if len(line) <= 150 && roleHeading.MatchString(line) && !strings.ContainsAny(roleAbbreviation.ReplaceAllString(line, ""), ".:!?") {
 				title = line
 			}
 			break

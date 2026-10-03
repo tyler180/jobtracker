@@ -16,7 +16,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-var ErrURL = errors.New("Automatic import supports direct HTTPS posting URLs from Ashby, Greenhouse, Workday, or Upstart. For other sites, paste the description and check the company and job title")
+var ErrURL = errors.New("Automatic import supports direct HTTPS posting URLs from Ashby, Greenhouse, Workday, Upstart, or LinkedIn. For other sites, paste the description and check the company and job title")
 var segment = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type Job struct {
@@ -48,6 +48,15 @@ func parse(raw string) (target, error) {
 	}
 	t := target{}
 	switch {
+	case host == "www.linkedin.com" || host == "linkedin.com":
+		if len(p) != 3 || p[0] != "jobs" || p[1] != "view" {
+			return t, ErrURL
+		}
+		id := linkedinJobID(p[2])
+		if id == "" {
+			return t, ErrURL
+		}
+		t = target{"linkedin", "", id, "https://www.linkedin.com/jobs/view/" + id + "/", "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/" + id}
 	case host == "careers.upstart.com":
 		if len(p) != 2 || p[0] != "jobs" || !upstartID.MatchString(p[1]) {
 			return t, ErrURL
@@ -138,7 +147,7 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 		return Job{}, err
 	}
 	req.Header.Set("Accept", "application/json")
-	if t.provider == "upstart" {
+	if t.provider == "upstart" || t.provider == "linkedin" {
 		req.Header.Set("Accept", "text/html")
 	}
 	req.Header.Set("User-Agent", "JobTracker/0.1")
@@ -159,6 +168,10 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 	}
 	j := Job{Provider: t.provider, Company: t.company, URL: t.canonical}
 	switch t.provider {
+	case "linkedin":
+		if err := importLinkedIn(body, &j); err != nil {
+			return Job{}, err
+		}
 	case "upstart":
 		if err := importUpstart(body, &j); err != nil {
 			return Job{}, err
