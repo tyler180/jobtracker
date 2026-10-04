@@ -33,6 +33,7 @@ func New(store *jobs.Store, importer Fetcher) http.Handler {
 	mux.HandleFunc("POST /api/jobs", s.save)
 	mux.HandleFunc("POST /api/jobs/preview", s.preview)
 	mux.HandleFunc("PUT /api/jobs/{id}/application", s.update)
+	mux.HandleFunc("PATCH /api/jobs/{id}/dates", s.updateDates)
 	mux.HandleFunc("GET /jobs/{id}", s.description)
 	mux.HandleFunc("DELETE /api/jobs/{id}", s.delete)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

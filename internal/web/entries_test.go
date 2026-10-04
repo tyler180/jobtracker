@@ -9,7 +9,7 @@ import (
 	"github.com/tyler180/jobtracker/internal/jobs"
 )
 
-func TestEntriesReadOnly(t *testing.T) {
+func TestEntriesReadingDoesNotMutate(t *testing.T) {
 	store, err := jobs.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -41,17 +41,12 @@ func TestEntriesReadOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := read()
-	// for _, want := range []string{"Edited company", "Edited title", "Full description", "Second description", "Saved posting only", "2026-10-01", "2026-10-03", "Follow up", "&lt;script&gt;", "&lt;img", "Search entries"} {
-	// 	if !strings.Contains(body, want) {
-	// 		t.Errorf("missing %q", want)
-	// 	}
-	// }
-	for _, want := range []string{"Edited company", "Edited title", "Saved posting only", "2026-10-01", "2026-10-03", "Follow up", "&lt;img", "Search entries"} {
+	for _, want := range []string{"Edited company", "Edited title", "Saved posting only", "2026-10-01", "2026-10-03", "Follow up", "&lt;img", "Search entries", `name="applied_date"`, `name="response_date"`, `name="screening_date"`, `name="round_1_date"`, `name="round_2_date"`, `name="round_3_date"`, "Save dates"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"<script>alert", "<img src=x", "<form", "<button", "fetch("} {
+	for _, forbidden := range []string{"<script>alert", "<img src=x", "Full description", "Second description"} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("unexpected %q", forbidden)
 		}

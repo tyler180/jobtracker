@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/tyler180/jobtracker/internal/jobs"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -237,5 +238,95 @@ func TestCompanyAndDateDefaults(t *testing.T) {
 	w = send("POST", "/api/jobs", `{"url":"https://jobs.ashbyhq.com/acme/abc","status":"applied","applied_date":"2026-02-30"}`)
 	if w.Code != 400 || importer.calls != calls {
 		t.Fatal("Invalid date triggered import", w.Code)
+	}
+}
+
+func TestDateEditsPreserveEntry(t *testing.T) {
+	for _, tracked := range []bool{false, true} {
+		t.Run(map[bool]string{false: "saved posting", true: "tracked application"}[tracked], func(t *testing.T) {
+			dir := t.TempDir()
+			store, err := jobs.Open(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			application := jobs.Application{}
+			if tracked {
+				application = jobs.Application{Company: "Edited company", Title: "Edited title", Status: "interview", InterviewStage: "round 2", InterviewNotes: "Keep these notes", NextSteps: "Keep next steps", AppliedDate: "2026-10-01", ResponseDate: "2026-10-02", Round2Date: "2026-10-03"}
+			}
+			original, _, err := store.Save(jobs.Job{URL: "https://example.com/date-edit", Company: "Original company", Title: "Original title", DescriptionText: "Keep full description", Application: application})
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := New(store, &fake{})
+			send := func(body, site, contentType string) *httptest.ResponseRecorder {
+				r := httptest.NewRequest("PATCH", "/api/jobs/"+original.ID+"/dates", strings.NewReader(body))
+				r.Header.Set("Content-Type", contentType)
+				r.Header.Set("Sec-Fetch-Site", site)
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				return w
+			}
+			for _, body := range []string{`{}`, `{"applied_date":"2026-02-30"}`, `{"round_1_date":null}`, `{"status":"applied"}`, `{"applied_date":"2026-10-01","applied_date":"2026-10-02"}`, `{"applied_date":"2026-10-01"} {}`, `{"round_1_date":"2026-10-05","round_2_date":"bad"}`} {
+				if w := send(body, "same-origin", "application/json"); w.Code != 400 {
+					t.Fatalf("%s: %d %s", body, w.Code, w.Body)
+				}
+			}
+			if w := send(`{"applied_date":"2026-10-05"}`, "cross-site", "application/json"); w.Code != 403 {
+				t.Fatal(w.Code)
+			}
+			if w := send(`{"applied_date":"2026-10-05"}`, "same-origin", "text/plain"); w.Code != 415 {
+				t.Fatal(w.Code)
+			}
+			unchanged, err := store.Get(original.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(unchanged, original) {
+				t.Fatal("rejected edits changed entry")
+			}
+			fields := map[string]string{"applied_date": "2026-09-20", "response_date": "2026-09-21", "screening_date": "2026-09-22", "round_1_date": "2026-09-23", "round_2_date": "2026-09-24", "round_3_date": "2026-09-25"}
+			body, _ := json.Marshal(fields)
+			if w := send(string(body), "same-origin", "application/json"); w.Code != 200 {
+				t.Fatal(w.Code, w.Body)
+			}
+			reopened, err := jobs.Open(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, err := reopened.Get(original.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := original
+			expected.Application.AppliedDate = "2026-09-20"
+			expected.Application.ResponseDate = "2026-09-21"
+			expected.Application.ScreeningDate = "2026-09-22"
+			expected.Application.Round1Date = "2026-09-23"
+			expected.Application.Round2Date = "2026-09-24"
+			expected.Application.Round3Date = "2026-09-25"
+			if !reflect.DeepEqual(actual, expected) {
+				t.Fatalf("date update changed other fields: %+v", actual)
+			}
+			if w := send(`{"applied_date":"","response_date":"","round_2_date":""}`, "same-origin", "application/json"); w.Code != 200 {
+				t.Fatal(w.Code, w.Body)
+			}
+			actual, err = store.Get(original.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected.Application.AppliedDate = ""
+			expected.Application.ResponseDate = ""
+			expected.Application.Round2Date = ""
+			if !reflect.DeepEqual(actual, expected) {
+				t.Fatal("cleared dates defaulted or omitted fields changed")
+			}
+			r := httptest.NewRequest("PATCH", "/api/jobs/"+strings.Repeat("f", 64)+"/dates", strings.NewReader(`{"applied_date":"2026-10-01"}`))
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != 404 {
+				t.Fatal(w.Code, w.Body)
+			}
+		})
 	}
 }
