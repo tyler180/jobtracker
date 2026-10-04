@@ -41,12 +41,12 @@ func TestEntriesReadingDoesNotMutate(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := read()
-	for _, want := range []string{"Edited company", "Edited title", "Saved posting only", "2026-10-01", "2026-10-03", "Follow up", "&lt;img", "Search entries", `name="applied_date"`, `name="response_date"`, `name="screening_date"`, `name="round_1_date"`, `name="round_2_date"`, `name="round_3_date"`, "Save dates"} {
+	for _, want := range []string{"Edited company", "Edited title", "Saved posting only", "2026-10-01", "2026-10-03", "Follow up", "&lt;img", "Search entries", "Applied date", "Response date", "Initial screening", "Round 1", "Round 2", "Round 3"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"<script>alert", "<img src=x", "Full description", "Second description"} {
+	for _, forbidden := range []string{"<script>alert", "<img src=x", "Full description", "Second description", "<form", "<button", "Save dates", "fetch(", `type="date"`} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("unexpected %q", forbidden)
 		}
