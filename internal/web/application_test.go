@@ -330,3 +330,42 @@ func TestDateEditsPreserveEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestEditEntryPreservesStatusAndBlankDates(t *testing.T) {
+	for _, status := range []string{"", "interview"} {
+		t.Run("status="+status, func(t *testing.T) {
+			store, err := jobs.Open(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			stage := ""
+			if status == "interview" {
+				stage = "round 1"
+			}
+			original, _, err := store.Save(jobs.Job{URL: "https://example.com/edit", Company: "Original company", Title: "Original title", DescriptionText: "Archived description", Application: jobs.Application{Company: "Company", Title: "Title", Status: status, InterviewStage: stage}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, _ := json.Marshal(map[string]string{"company": "Updated company", "title": "Updated title", "status": status, "interview_stage": stage, "interview_notes": "Updated notes", "next_steps": "Updated next steps", "applied_date": "", "response_date": "", "screening_date": "", "round_1_date": "", "round_2_date": "", "round_3_date": ""})
+			r := httptest.NewRequest("PUT", "/api/jobs/"+original.ID+"/application", strings.NewReader(string(body)))
+			r.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			New(store, &fake{}).ServeHTTP(w, r)
+			if w.Code != 200 {
+				t.Fatal(w.Code, w.Body)
+			}
+			got, err := store.Get(original.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := original
+			expected.Application.Company = "Updated company"
+			expected.Application.Title = "Updated title"
+			expected.Application.InterviewNotes = "Updated notes"
+			expected.Application.NextSteps = "Updated next steps"
+			if !reflect.DeepEqual(got, expected) {
+				t.Fatal("editing changed status, dates, or archived fields")
+			}
+		})
+	}
+}
