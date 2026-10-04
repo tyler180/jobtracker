@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/tyler180/jobtracker/internal/jobs"
 )
@@ -60,6 +61,41 @@ func decodeFields(w http.ResponseWriter, r *http.Request, allowed []string) (map
 }
 func applicationFrom(f map[string]string) jobs.Application {
 	return jobs.Application{AppliedDate: f["applied_date"], ResponseDate: f["response_date"], ScreeningDate: f["screening_date"], Round1Date: f["round_1_date"], Round2Date: f["round_2_date"], Round3Date: f["round_3_date"], Company: f["company"], Title: f["title"], Status: f["status"], InterviewStage: f["interview_stage"], InterviewNotes: f["interview_notes"], NextSteps: f["next_steps"]}
+}
+
+func (s *Server) updateDates(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+		fail(w, http.StatusForbidden, "Cross-site requests are not allowed")
+		return
+	}
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || media != "application/json" || r.Header.Get("Content-Encoding") != "" {
+		fail(w, http.StatusUnsupportedMediaType, "Use application/json without content encoding")
+		return
+	}
+	f, err := decodeFields(w, r, []string{"applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"})
+	if err != nil || len(f) == 0 {
+		fail(w, http.StatusBadRequest, "Expected date fields in a single JSON object")
+		return
+	}
+	for _, value := range f {
+		if value != "" {
+			if _, err := time.Parse("2006-01-02", value); err != nil {
+				fail(w, http.StatusBadRequest, "Dates must be valid dates in YYYY-MM-DD format")
+				return
+			}
+		}
+	}
+	j, err := s.store.UpdateDates(r.PathValue("id"), f)
+	if errors.Is(err, os.ErrNotExist) {
+		fail(w, http.StatusNotFound, "Saved job not found")
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "Could not update dates")
+		return
+	}
+	reply(w, http.StatusOK, j)
 }
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {

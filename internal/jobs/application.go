@@ -94,6 +94,41 @@ func (s *Store) UpdateApplication(id string, a Application) (Job, error) {
 	return j, s.write(j)
 }
 
+// UpdateDates changes only the supplied dates, including explicitly cleared dates.
+// It leaves tracking details and the archived posting untouched.
+func (s *Store) UpdateDates(id string, dates map[string]string) (Job, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	j, err := s.get(id)
+	if err != nil {
+		return Job{}, err
+	}
+	for name, value := range dates {
+		if value != "" {
+			if _, err := time.Parse("2006-01-02", value); err != nil {
+				return Job{}, errors.New("Dates must be valid dates in YYYY-MM-DD format")
+			}
+		}
+		switch name {
+		case "applied_date":
+			j.Application.AppliedDate = value
+		case "response_date":
+			j.Application.ResponseDate = value
+		case "screening_date":
+			j.Application.ScreeningDate = value
+		case "round_1_date":
+			j.Application.Round1Date = value
+		case "round_2_date":
+			j.Application.Round2Date = value
+		case "round_3_date":
+			j.Application.Round3Date = value
+		default:
+			return Job{}, errors.New("Unknown date field")
+		}
+	}
+	return j, s.write(j)
+}
+
 // Delete removes both the archived posting and its application details.
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()

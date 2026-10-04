@@ -4,15 +4,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Read entries · Job tracker</title>
 <style>
-body{font:16px system-ui;max-width:900px;margin:40px auto;padding:0 20px;background:#f5f5f2;color:#172b2a;line-height:1.6}
-a{color:#176b58}article{background:white;border:1px solid #ddd;border-radius:12px;padding:24px;margin:24px 0}h2{line-height:1.3;margin-bottom:8px}h3{margin-bottom:8px}.text{white-space:pre-wrap;overflow-wrap:anywhere}label{display:block}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bac4c0;border-radius:8px;font:inherit}.metadata{color:#526560}dl{display:grid;grid-template-columns:auto 1fr;gap:4px 20px}dd{margin:0}[hidden]{display:none!important}
-@media(max-width:650px){article{padding:16px}dl{grid-template-columns:1fr;gap:0}dd{margin-bottom:8px}}
-@media print{nav,#search-area{display:none}body{background:white;max-width:none;margin:0}article{border:0;padding:0}h2,h3{break-after:avoid}}
+body{font:16px system-ui;max-width:1250px;margin:40px auto;padding:0 20px;background:#f5f5f2;color:#172b2a;line-height:1.6}
+a{color:#176b58}article{background:white;border:1px solid #ddd;border-radius:12px;padding:24px;margin:24px 0}h2{line-height:1.3;margin-bottom:8px}h3{margin-bottom:8px}.text{white-space:pre-wrap;overflow-wrap:anywhere}label{display:block}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bac4c0;border-radius:8px;font:inherit}.metadata{color:#526560}.date-wrap{overflow-x:auto}.dates{display:grid;grid-template-columns:repeat(6,minmax(160px,1fr));gap:12px}.dates label{font-size:14px;font-weight:600}.dates input{margin-top:6px;font-weight:400}button{padding:10px 18px;border:0;border-radius:8px;background:#176b58;color:white;font:inherit;cursor:pointer}button:disabled{opacity:.6}.date-feedback{min-height:24px}[hidden]{display:none!important}
+@media(max-width:650px){article{padding:16px}}
+@media print{nav,#search-area,button{display:none}body{background:white;max-width:none;margin:0}article{border:0;padding:0}h2,h3{break-after:avoid}}
 </style>
 <nav aria-label="Main navigation"><a href="/">Manage applications</a> · <a href="/entries" aria-current="page">Read entries</a></nav>
-<header><h1>Read entries</h1><p>Your saved job descriptions and application notes, newest first.</p></header>
+<header><h1>Read entries</h1><p>Your saved jobs and application notes, newest first. Update dates below or open a saved description.</p></header>
 {{if .}}
-<div id="search-area" hidden><label for="search">Search entries</label><input id="search" type="search" placeholder="Company, title, description, or notes"><p id="count" role="status" aria-live="polite"></p></div>
+<div id="search-area" hidden><label for="search">Search entries</label><input id="search" type="search" placeholder="Company, title, or notes"><p id="count" role="status" aria-live="polite"></p></div>
 <main>
 {{range .}}
 <article>
@@ -20,25 +20,43 @@ a{color:#176b58}article{background:white;border:1px solid #ddd;border-radius:12p
 <p><strong>{{if .Application.Company}}{{.Application.Company}}{{else}}{{.Company}}{{end}}</strong>{{if .Location}} · {{.Location}}{{end}}</p>
 <p class="metadata">{{if .Application.Status}}{{.Application.Status}}{{else}}Saved posting only{{end}}{{if .Application.InterviewStage}} · {{.Application.InterviewStage}}{{end}} · Saved {{.SavedAt.Format "Jan 2, 2006"}}</p>
 <p><a href="/jobs/{{.ID}}">Saved description</a> · <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Original posting</a></p>
-<dl>
-{{with .Application.AppliedDate}}<dt>Applied</dt><dd>{{.}}</dd>{{end}}
-{{with .Application.ResponseDate}}<dt>Response received</dt><dd>{{.}}</dd>{{end}}
-{{with .Application.ScreeningDate}}<dt>Initial screening</dt><dd>{{.}}</dd>{{end}}
-{{with .Application.Round1Date}}<dt>Round 1</dt><dd>{{.}}</dd>{{end}}
-{{with .Application.Round2Date}}<dt>Round 2</dt><dd>{{.}}</dd>{{end}}
-{{with .Application.Round3Date}}<dt>Round 3</dt><dd>{{.}}</dd>{{end}}
-</dl>
+<form class="date-form" action="/api/jobs/{{.ID}}/dates" aria-label="Application dates">
+<div class="date-wrap"><div class="dates">
+<label>Applied date<input type="date" name="applied_date" value="{{.Application.AppliedDate}}"></label>
+<label>Response date<input type="date" name="response_date" value="{{.Application.ResponseDate}}"></label>
+<label>Initial screening<input type="date" name="screening_date" value="{{.Application.ScreeningDate}}"></label>
+<label>Round 1<input type="date" name="round_1_date" value="{{.Application.Round1Date}}"></label>
+<label>Round 2<input type="date" name="round_2_date" value="{{.Application.Round2Date}}"></label>
+<label>Round 3<input type="date" name="round_3_date" value="{{.Application.Round3Date}}"></label>
+</div></div>
+<p><button type="submit" hidden>Save dates</button></p><p class="date-feedback" role="status" aria-live="polite"></p>
+</form>
+<noscript><p>Enable JavaScript to save date changes.</p></noscript>
 {{with .Application.InterviewNotes}}<h3>Interview notes</h3><div class="text">{{.}}</div>{{end}}
 {{with .Application.NextSteps}}<h3>Next steps</h3><div class="text">{{.}}</div>{{end}}
-<!-- <h3>Job description</h3><div class="text">{{.DescriptionText}}</div> -->
 </article>
 {{end}}
 <p id="no-matches" hidden>No entries match your search.</p>
 </main>
 <script>
 const articles=[...document.querySelectorAll('article')],search=document.querySelector('#search'),count=document.querySelector('#count');
-const texts=articles.map(article=>article.textContent.toLocaleLowerCase());
-function filter(){const query=search.value.trim().toLocaleLowerCase();let shown=0;articles.forEach((article,i)=>{article.hidden=!texts[i].includes(query);if(!article.hidden)shown++});count.textContent=shown+' of '+articles.length+' entries';document.querySelector('#no-matches').hidden=shown!==0}
+function entryText(article){return [...article.querySelectorAll('h2,p:not(.date-feedback),.text')].map(node=>node.textContent).join(' ').toLocaleLowerCase()}
+function filter(){const query=search.value.trim().toLocaleLowerCase();let shown=0;articles.forEach((article,i)=>{article.hidden=!entryText(article).includes(query);if(!article.hidden)shown++});count.textContent=shown+' of '+articles.length+' entries';document.querySelector('#no-matches').hidden=shown!==0}
+for(const form of document.querySelectorAll('.date-form')){
+ const button=form.querySelector('button'),feedback=form.querySelector('.date-feedback');button.hidden=false;
+ form.addEventListener('submit',async event=>{
+  event.preventDefault();button.disabled=true;feedback.textContent='Saving dates…';
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  const inputs=[...form.querySelectorAll('input')],body=Object.fromEntries(new FormData(form));inputs.forEach(input=>input.disabled=true);
+  try{
+   const response=await fetch(form.action,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+   const data=await response.json();if(!response.ok)throw Error(data.error||'Could not save dates.');
+   for(const input of inputs)input.value=data.application[input.name]||'';
+   feedback.textContent='Dates saved.';
+  }catch(error){feedback.textContent=error.name==='AbortError'?'The request timed out. Please try saving again.':error.message}
+  finally{clearTimeout(timer);inputs.forEach(input=>input.disabled=false);button.disabled=false}
+ });
+}
 document.querySelector('#search-area').hidden=false;search.addEventListener('input',filter);filter();
 </script>
 {{else}}<main><p>No saved entries yet. <a href="/">Add your first job</a> to start reading here.</p></main>{{end}}

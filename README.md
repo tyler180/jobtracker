@@ -33,7 +33,7 @@ Tracking query parameters and fragments are removed from saved URLs. Custom comp
 
 Provider references: [Ashby public postings API](https://developers.ashbyhq.com/docs/public-job-posting-api), [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html).
 
-Open `/entries` (or choose **Read entries**) for a read-only page containing every saved description, application status, dates, interview notes, and next steps. Entries appear newest first and can be searched by their text.
+Open `/entries` (or choose **Read entries**) to browse saved jobs, application status, dates, interview notes, and next steps. Full descriptions are available through the Saved description link. Each date has its own column and can be edited with Save dates. Clearing a date leaves it blank; editing dates does not change status or notes. Entries appear newest first and can be searched by their text.
 
 ## API
 
@@ -51,6 +51,8 @@ curl http://127.0.0.1:8080/api/jobs
 `POST /api/jobs/preview` accepts a posting URL and returns extracted posting details without saving an archive. An optional `description_text` field previews metadata inferred from pasted text, without an outbound request. If an Upstart import fails, preview returns URL-derived metadata with `description_required: true`; saving still requires a real description. Preview uses the same import limits as saving. Preview request bodies are limited to 128 KiB.
 
 To create a tracked application, include `company`, `title`, and `status` alongside `url` in `POST /api/jobs`. Optional fields are `interview_stage`, `interview_notes`, and `next_steps`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
+
+`PATCH /api/jobs/{id}/dates` updates only the supplied date fields (the six fields listed below). Use an empty string to clear a date; omitted dates and all other application fields are preserved, with no automatic date defaults. This works for tracked applications and saved postings without marking them applied. Invalid dates or fields return 400 and missing jobs return 404.
 
 `DELETE /api/jobs/{id}` removes the posting and application, returning 200 with `{"deleted":true}` or 404 for a missing job.
 
