@@ -33,7 +33,7 @@ Tracking query parameters and fragments are removed from saved URLs. Custom comp
 
 Provider references: [Ashby public postings API](https://developers.ashbyhq.com/docs/public-job-posting-api), [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html).
 
-Open `/entries` (or choose **Read entries**) to browse saved jobs, application status, dates, interview notes, and next steps. Full descriptions are available through the Saved description link. Each date has its own column and can be edited with Save dates. Clearing a date leaves it blank; editing dates does not change status or notes. Entries appear newest first and can be searched by their text.
+Open `/entries` (or choose **Read entries**) to browse saved jobs, application status, dates, interview notes, and next steps. Full descriptions are available through the Saved description link. Each date has its own read-only column on this page. Edit dates in the main Job tracker page, where each application row has six date columns and a Save dates button. Clearing a date leaves it blank; editing dates does not change status or notes. Entries appear newest first and can be searched by their text.
 
 ## API
 
