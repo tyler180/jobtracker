@@ -40,7 +40,7 @@ func (a Application) Validate() error {
 		return errors.New("Company and job title are required (maximum 300 bytes each)")
 	}
 	switch a.Status {
-	case "applied", "waiting for response", "not moving forward", "interview":
+	case "", "applied", "waiting for response", "not moving forward", "interview":
 	default:
 		return errors.New("Choose a valid application status")
 	}
@@ -89,7 +89,9 @@ func (s *Store) UpdateApplication(id string, a Application) (Job, error) {
 	}
 	a.Company = strings.TrimSpace(a.Company)
 	a.Title = strings.TrimSpace(a.Title)
-	a.DefaultDates(Today())
+	if a.Status != j.Application.Status || a.InterviewStage != j.Application.InterviewStage {
+		a.DefaultDates(Today())
+	}
 	j.Application = a
 	return j, s.write(j)
 }
@@ -158,7 +160,7 @@ func Today() string {
 
 // DefaultDates fills dates only for events represented by the application.
 func (a *Application) DefaultDates(today string) {
-	if a.AppliedDate == "" {
+	if a.AppliedDate == "" && a.Status != "" {
 		a.AppliedDate = today
 	}
 	if a.ResponseDate == "" && (a.Status == "interview" || a.Status == "not moving forward") {
