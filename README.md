@@ -35,6 +35,10 @@ Provider references: [Ashby public postings API](https://developers.ashbyhq.com/
 
 Open `/entries` (or choose **Read entries**) to browse saved jobs, application status, dates, interview notes, and next steps. Full descriptions are available through the Saved description link. Each date has its own read-only column on this page. Edit dates in the main Job tracker page, where each application row has six date columns and a Save dates button. Clearing a date leaves it blank; editing dates does not change status or notes. Entries appear newest first and can be searched by their text.
 
+Ford Motor Company (`www.careers.ford.com/job/.../48560/...`) and Principal (`careers.principal.com/careers-home/jobs/...`) postings can also be imported automatically. The importer reads their published job data to fill company, title, location, and the full description. Tracking parameters are removed from saved URLs. If a posting is unavailable or blocks importing, use the pasted-description fallback.
+
+Other public HTTPS job pages can be imported when they publish inline Schema.org `JobPosting` data with a company, title, and description. The importer supports standalone objects, arrays, and `@graph` documents; it matches the requested URL and refuses ambiguous postings. Essential query parameters are retained and common tracking parameters are removed. No scripts are executed, schema links are not fetched, and redirects remain disabled. Pages without complete job data, login-only pages, and blocked requests require pasting the description.
+
 ## API
 
 ```sh

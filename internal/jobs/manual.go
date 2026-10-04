@@ -43,11 +43,14 @@ func ManualPreview(raw, description string) (Job, error) {
 	u.Host = strings.ToLower(u.Host)
 	u.RawQuery, u.Fragment, u.RawFragment = "", "", ""
 	u.ForceQuery = false
-	if target, err := parse(raw); err == nil && target.provider == "linkedin" {
-		// Numeric and slug URLs must share the same first-snapshot identity.
+	if target, err := parse(raw); err == nil && (target.provider == "linkedin" || target.provider == "ford" || target.provider == "principal" || target.provider == "generic") {
+		// Provider aliases and manual imports share the same snapshot identity.
 		u, _ = url.Parse(target.canonical)
 	}
 	company, title := inferDescription(description)
+	if t, err := parse(raw); err == nil && (t.provider == "ford" || t.provider == "principal") && company == "" {
+		company = t.company
+	}
 	if t, err := parse(raw); err == nil && t.provider == "upstart" {
 		if company == "" {
 			company = "Upstart"

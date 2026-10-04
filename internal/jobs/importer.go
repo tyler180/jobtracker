@@ -16,7 +16,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-var ErrURL = errors.New("Automatic import supports direct HTTPS posting URLs from Ashby, Greenhouse, Workday, Upstart, or LinkedIn. For other sites, paste the description and check the company and job title")
+var ErrURL = errors.New("Enter a direct public HTTPS job posting URL without credentials or a custom port. If automatic import is unavailable, paste the description and check the company and job title")
+var numericID = regexp.MustCompile(`^[1-9][0-9]{0,19}$`)
 var segment = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type Job struct {
@@ -36,10 +37,19 @@ type target struct{ provider, company, id, canonical, endpoint string }
 
 func parse(raw string) (target, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || strings.HasSuffix(u.Host, ":") {
 		return target{}, ErrURL
 	}
 	host := strings.ToLower(u.Hostname())
+	known := host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
+	if !known {
+		for _, providerHost := range []string{"www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
+			if strings.HasPrefix(host, providerHost+".") {
+				return target{}, ErrURL
+			}
+		}
+		return genericTarget(u)
+	}
 	p := strings.Split(strings.Trim(u.Path, "/"), "/")
 	for _, s := range p {
 		if !segment.MatchString(s) {
@@ -48,6 +58,18 @@ func parse(raw string) (target, error) {
 	}
 	t := target{}
 	switch {
+	case host == "www.careers.ford.com":
+		if len(p) != 5 || p[0] != "job" || p[3] != "48560" || !numericID.MatchString(p[4]) {
+			return t, ErrURL
+		}
+		canonical := "https://www.careers.ford.com/" + strings.Join(p, "/")
+		t = target{"ford", "Ford Motor Company", p[4], canonical, canonical}
+	case host == "careers.principal.com":
+		if len(p) != 3 || p[0] != "careers-home" || p[1] != "jobs" || !numericID.MatchString(p[2]) {
+			return t, ErrURL
+		}
+		canonical := "https://careers.principal.com/careers-home/jobs/" + p[2]
+		t = target{"principal", "Principal Financial Group", p[2], canonical, canonical}
 	case host == "www.linkedin.com" || host == "linkedin.com":
 		if len(p) != 3 || p[0] != "jobs" || p[1] != "view" {
 			return t, ErrURL
@@ -147,7 +169,7 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 		return Job{}, err
 	}
 	req.Header.Set("Accept", "application/json")
-	if t.provider == "upstart" || t.provider == "linkedin" {
+	if t.provider == "upstart" || t.provider == "linkedin" || t.provider == "ford" || t.provider == "principal" || t.provider == "generic" {
 		req.Header.Set("Accept", "text/html")
 	}
 	req.Header.Set("User-Agent", "JobTracker/0.1")
@@ -168,6 +190,10 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 	}
 	j := Job{Provider: t.provider, Company: t.company, URL: t.canonical}
 	switch t.provider {
+	case "ford", "principal", "generic":
+		if err := importStructuredPosting(body, t, &j); err != nil {
+			return Job{}, err
+		}
 	case "linkedin":
 		if err := importLinkedIn(body, &j); err != nil {
 			return Job{}, err
@@ -233,8 +259,8 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 	if j.DescriptionText == "" {
 		j.DescriptionText = PlainText(j.DescriptionHTML)
 	}
-	if strings.TrimSpace(j.Title) == "" || strings.TrimSpace(j.DescriptionText) == "" {
-		return Job{}, errors.New("provider returned no job title or description; nothing was saved")
+	if strings.TrimSpace(j.Title) == "" || strings.TrimSpace(j.Company) == "" || strings.TrimSpace(j.DescriptionText) == "" {
+		return Job{}, errors.New("provider returned no company, job title, or description; nothing was saved")
 	}
 	return j, nil
 }
