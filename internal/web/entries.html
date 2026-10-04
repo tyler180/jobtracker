@@ -16,8 +16,8 @@ a{color:#176b58}article{background:white;border:1px solid #ddd;border-radius:12p
 <main>
 {{range .}}
 <article>
-<h2>{{if .Application.Title}}{{.Application.Title}}{{else}}{{.Title}}{{end}}</h2>
-<p><strong>{{if .Application.Company}}{{.Application.Company}}{{else}}{{.Company}}{{end}}</strong>{{if .Location}} · {{.Location}}{{end}}</p>
+<h2>{{if .Application.Company}}{{.Application.Company}}{{else}}{{.Company}}{{end}}{{if .Location}} · {{.Location}}{{end}}</h2>
+<p><strong>{{if .Application.Title}}{{.Application.Title}}{{else}}{{.Title}}{{end}}</strong></p>
 <p class="metadata">{{if .Application.Status}}{{.Application.Status}}{{else}}Saved posting only{{end}}{{if .Application.InterviewStage}} · {{.Application.InterviewStage}}{{end}} · Saved {{.SavedAt.Format "Jan 2, 2006"}}</p>
 <p><a href="/jobs/{{.ID}}">Saved description</a> · <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Original posting</a></p>
 <div class="date-wrap"><dl class="dates">
