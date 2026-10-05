@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -29,7 +30,14 @@ func Open(dir string) (*Store, error) {
 func (s *Store) Save(j Job) (Job, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	sum := sha256.Sum256([]byte(j.URL))
+	identity := []byte(j.URL)
+	if j.URL == "" {
+		identity = make([]byte, 32)
+		if _, err := rand.Read(identity); err != nil {
+			return Job{}, false, err
+		}
+	}
+	sum := sha256.Sum256(identity)
 	j.ID = hex.EncodeToString(sum[:])
 	path := filepath.Join(s.dir, j.ID+".json")
 	if b, e := os.ReadFile(path); e == nil {
