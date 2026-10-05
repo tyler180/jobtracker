@@ -156,7 +156,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	reply(w, 200, j)
 }
 
-var descriptionPage = template.Must(template.New("description").Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{.Title}}</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;font:inherit;line-height:1.6}</style><nav><a href="/entries">Back to entries</a> · <a href="/">Manage applications</a></nav><h1>{{.Title}}</h1><p>{{.Company}} · {{.Location}}</p><p>Saved {{.SavedAt}}</p><p><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Original posting</a></p><pre>{{.DescriptionText}}</pre></html>`))
+var descriptionPage = template.Must(template.New("description").Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{.Title}}</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;font:inherit;line-height:1.6}</style><nav><a href="/entries">Back to entries</a> · <a href="/">Manage applications</a></nav><h1>{{.Title}}</h1><p>{{.Company}} · {{.Location}}</p><p>Saved {{.SavedAt}}</p>{{if .URL}}<p><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Original posting</a></p>{{end}}<pre>{{.DescriptionText}}</pre></html>`))
 
 func (s *Server) description(w http.ResponseWriter, r *http.Request) {
 	j, err := s.store.Get(r.PathValue("id"))

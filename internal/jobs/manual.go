@@ -33,6 +33,13 @@ func Manual(raw, company, title, description string) (Job, error) {
 // ManualPreview infers editable metadata without fetching the source URL.
 // Missing fields remain blank rather than guessing from arbitrary prose.
 func ManualPreview(raw, description string) (Job, error) {
+	if len(description) > 64000 {
+		return Job{}, errors.New("Paste a job description of at most 64,000 bytes")
+	}
+	if strings.TrimSpace(raw) == "" && strings.TrimSpace(description) != "" {
+		company, title := inferDescription(description)
+		return Job{Provider: "manual", Company: company, Title: title, DescriptionText: description}, nil
+	}
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Port() != "" || strings.HasSuffix(u.Host, ":") {
 		return Job{}, errors.New("Enter a direct HTTPS posting URL without credentials or a custom port")

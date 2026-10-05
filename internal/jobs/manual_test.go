@@ -24,3 +24,28 @@ func TestManualMetadata(t *testing.T) {
 		t.Fatal("saved empty description")
 	}
 }
+
+func TestManualWithoutURL(t *testing.T) {
+	job, err := Manual("", "Acme", "Engineer", "Build services")
+	if err != nil || job.URL != "" {
+		t.Fatalf("manual entry: %+v, %v", job, err)
+	}
+	store, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, created, err := store.Save(job)
+	if err != nil || !created {
+		t.Fatalf("first save: %v", err)
+	}
+	second, created, err := store.Save(job)
+	if err != nil || !created || first.ID == second.ID {
+		t.Fatalf("URL-free entries collided: %v", err)
+	}
+	if _, err := Manual("", "Acme", "Engineer", " "); err == nil {
+		t.Fatal("accepted no URL and no description")
+	}
+	if _, err := Manual("http://example.com", "Acme", "Engineer", "Build services"); err == nil {
+		t.Fatal("accepted invalid optional URL")
+	}
+}
