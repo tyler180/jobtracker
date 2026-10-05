@@ -12,7 +12,7 @@ a{color:#176b58}article{background:white;border:1px solid #ddd;border-radius:12p
 <nav aria-label="Main navigation"><a href="/">Manage applications</a> · <a href="/entries" aria-current="page">Read entries</a></nav>
 <header><h1>Read entries</h1><p>Your saved jobs and application notes. Choose a sort order below. Open a saved description to read the full posting.</p></header>
 {{if .}}
-<div id="search-area" hidden><label for="search">Search entries</label><input id="search" type="search" placeholder="Company, title, or notes"><label for="sort">Sort entries</label><select id="sort"><option value="applied">Applied date — newest first</option><option value="recent">Most recent activity</option><option value="status">Status</option></select><div class="date-filters"><label for="start-date">Start date<input id="start-date" type="date"></label><label for="end-date">End date<input id="end-date" type="date"></label></div><p class="metadata">Matches any applied, response, screening, or interview date within the range, including the start and end dates. Leave either date blank for an open-ended range.</p><p id="date-error" role="alert" hidden>Start date must be on or before end date.</p><label class="display-option"><input id="show-location" type="checkbox">Show location</label><p id="count" role="status" aria-live="polite"></p></div>
+<div id="search-area" hidden><label for="search">Search entries</label><input id="search" type="search" placeholder="Company, title, or notes"><label for="sort">Sort entries</label><select id="sort"><option value="applied">Applied date — newest first</option><option value="oldest">Progress date — oldest to newest</option><option value="newest">Progress date — newest to oldest</option><option value="recent">Most recent activity</option><option value="status">Status</option></select><div class="date-filters"><label for="start-date">Start date<input id="start-date" type="date"></label><label for="end-date">End date<input id="end-date" type="date"></label></div><p class="metadata">Matches any applied, response, screening, or interview date within the range, including the start and end dates. Leave either date blank for an open-ended range. Progress date sorting uses the earliest matching date for oldest first and the latest matching date for newest first.</p><p id="date-error" role="alert" hidden>Start date must be on or before end date.</p><label class="display-option"><input id="show-location" type="checkbox">Show location</label><p id="count" role="status" aria-live="polite"></p></div>
 <main>
 {{range .}}
 <article data-applied="{{.Application.AppliedDate}}" data-status="{{.Application.Status}}" data-saved="{{.SavedAt.Format "2006-01-02T15:04:05.000000000Z07:00"}}" data-saved-date="{{.SavedAt.Format "2006-01-02"}}" data-dates="{{.Application.AppliedDate}} {{.Application.ResponseDate}} {{.Application.ScreeningDate}} {{.Application.Round1Date}} {{.Application.Round2Date}} {{.Application.Round3Date}}">
@@ -39,14 +39,23 @@ const articles=[...document.querySelectorAll('article')],search=document.querySe
 const sortOrder=document.querySelector('#sort'),statusOrder=['applied','waiting for response','interview','not moving forward'];
 function latestDate(article){return [article.dataset.savedDate,...article.dataset.dates.split(' ')].filter(Boolean).sort().at(-1)||''}
 function statusRank(article){const rank=statusOrder.indexOf(article.dataset.status);return rank<0?statusOrder.length:rank}
+function progressDate(article,mode){
+ const dates=article.dataset.dates.split(' ').filter(date=>date&&(!startDate.value||date>=startDate.value)&&(!endDate.value||date<=endDate.value)).sort();
+ return (mode==='oldest'?dates[0]:dates.at(-1))||'';
+}
 function compareEntries(a,b,mode){
+ if(mode==='oldest'||mode==='newest'){
+  const left=progressDate(a,mode),right=progressDate(b,mode);
+  if(!left||!right)return left?-1:right?1:0;
+  return mode==='oldest'?left.localeCompare(right):right.localeCompare(left);
+ }
  if(mode==='status'){const rank=statusRank(a)-statusRank(b);if(rank)return rank}
  if(mode==='applied'){const date=b.dataset.applied.localeCompare(a.dataset.applied);if(date)return date}
  const activity=latestDate(b).localeCompare(latestDate(a));if(activity)return activity;
  return b.dataset.saved.localeCompare(a.dataset.saved);
 }
 function sortEntries(){articles.sort((a,b)=>compareEntries(a,b,sortOrder.value));const main=document.querySelector('main'),empty=document.querySelector('#no-matches');for(const article of articles)main.insertBefore(article,empty)}
-sortOrder.addEventListener('change',sortEntries);sortEntries();
+sortOrder.addEventListener('change',sortEntries);
 function entryText(article){return [...article.querySelectorAll('h2,p,.text,dl')].map(node=>node.textContent).join(' ').toLocaleLowerCase()}
 const startDate=document.querySelector('#start-date'),endDate=document.querySelector('#end-date');
 function matchesDateRange(dates,start,end){return (!start&&!end)||dates.split(' ').filter(Boolean).some(date=>(!start||date>=start)&&(!end||date<=end))}
@@ -55,6 +64,7 @@ function filter(){
  document.querySelector('#date-error').hidden=!invalid;
  startDate.setAttribute('aria-invalid',String(invalid));endDate.setAttribute('aria-invalid',String(invalid));
  let shown=0;for(const article of articles){article.hidden=invalid||!entryText(article).includes(query)||!matchesDateRange(article.dataset.dates,start,end);if(!article.hidden)shown++}
+ sortEntries();
  count.textContent=shown+' of '+articles.length+' entries';document.querySelector('#no-matches').hidden=shown!==0||invalid;
 }
 startDate.addEventListener('input',filter);endDate.addEventListener('input',filter);
