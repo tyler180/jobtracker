@@ -82,8 +82,8 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		allowed = []string{"url", "description_text"}
 	}
 	fields, err := decodeFields(w, r, allowed)
-	if err != nil || strings.TrimSpace(fields["url"]) == "" {
-		fail(w, 400, "Expected a single JSON object containing url and valid application fields")
+	if err != nil || (strings.TrimSpace(fields["url"]) == "" && strings.TrimSpace(fields["description_text"]) == "") {
+		fail(w, 400, "Expected a single JSON object containing a posting URL or job description and valid application fields")
 		return
 	}
 	raw := fields["url"]
