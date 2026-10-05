@@ -3,6 +3,7 @@ package web
 import (
 	"net/http/httptest"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -50,6 +51,24 @@ func TestEntriesReadingDoesNotMutate(t *testing.T) {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("unexpected %q", forbidden)
 		}
+	}
+	dateAttributes := regexp.MustCompile(`data-dates="([^"]*)"`).FindAllStringSubmatch(body, -1)
+	if len(dateAttributes) != 2 {
+		t.Fatalf("expected date attributes for both entries, got %d", len(dateAttributes))
+	}
+	var populated, empty bool
+	for _, attribute := range dateAttributes {
+		dates := strings.Fields(attribute[1])
+		if len(dates) == 0 {
+			empty = true
+		} else if reflect.DeepEqual(dates, []string{"2026-10-01", "2026-10-03"}) {
+			populated = true
+		} else {
+			t.Errorf("filter contains dates other than application progress dates: %v", dates)
+		}
+	}
+	if !populated || !empty {
+		t.Fatal("expected progress dates on tracked entry and no filter dates on saved-only entry")
 	}
 	after, err := store.List()
 	if err != nil {
