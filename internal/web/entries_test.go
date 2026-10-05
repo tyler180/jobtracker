@@ -29,7 +29,7 @@ func TestEntriesReadingDoesNotMutate(t *testing.T) {
 	if !strings.Contains(read(), "No saved entries yet") {
 		t.Fatal("missing empty state")
 	}
-	_, _, err = store.Save(jobs.Job{URL: "https://example.com/one", Company: "Original company", Title: "Original title", DescriptionText: "<script>alert('description')</script>\nFull description", Application: jobs.Application{Company: "Edited company", Title: "Edited title", Status: "interview", InterviewStage: "round 1", InterviewNotes: "<img src=x onerror=alert(1)>", NextSteps: "Follow up", AppliedDate: "2026-10-01", Round1Date: "2026-10-03"}})
+	_, _, err = store.Save(jobs.Job{URL: "https://example.com/one", Company: "Original company", Title: "Original title", DescriptionText: "<script>alert('description')</script>\nFull description", Application: jobs.Application{Company: "Edited company", Title: "Edited title", Status: "interview", InterviewStage: "round 1", InterviewNotes: "<img src=x onerror=alert(1)>", NextSteps: "Follow up", AppliedDate: "2026-10-01", ResponseDate: "2026-10-02", Round1Date: "2026-10-03"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestEntriesReadingDoesNotMutate(t *testing.T) {
 			t.Errorf("missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"<script>alert", "<img src=x", "Full description", "Second description", "<form", "<button", "Save dates", "fetch(", "Response date", "Initial screening", "Round 2", "Round 3", "<dd>—</dd>"} {
+	for _, forbidden := range []string{"<script>alert", "<img src=x", "Full description", "Second description", "<form", "<button", "Save dates", "fetch(", "Initial screening", "Round 2", "Round 3", "<dd>—</dd>"} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("unexpected %q", forbidden)
 		}
