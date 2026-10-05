@@ -80,3 +80,25 @@ func TestPastedDescription(t *testing.T) {
 		t.Fatal("invalid pasted description fetched source URL")
 	}
 }
+
+func TestDescriptionWithoutURL(t *testing.T) {
+	store, err := jobs.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	importer := &fake{}
+	handler := New(store, importer)
+	for _, path := range []string{"/api/jobs/preview", "/api/jobs"} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest("POST", path, strings.NewReader(`{"description_text":"Company: Acme\nJob title: Engineer\nBuild services"}`))
+		request.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(response, request)
+		if response.Code != 200 && response.Code != 201 {
+			t.Fatalf("%s: %d %s", path, response.Code, response.Body)
+		}
+	}
+	entries, err := store.List()
+	if err != nil || len(entries) != 1 || entries[0].URL != "" || importer.calls != 0 {
+		t.Fatalf("entries=%v err=%v calls=%d", entries, err, importer.calls)
+	}
+}
