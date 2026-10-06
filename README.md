@@ -125,3 +125,7 @@ Interview dates are stored in `milestones`, an array such as `[{"stage":"initial
 Local PDF importing requires Poppler (`pdftotext`) on PATH; the container includes it. On macOS, install it with `brew install poppler`.
 
 `POST /api/jobs/pdf` accepts a raw `application/pdf` body without content encoding and returns extracted text and inferred metadata without saving. It shares the four import slots, caps uploads at 5 MiB, extracted text at 64,000 bytes, and processing at 15 seconds. Text is processed through stdin/stdout without temporary files.
+
+Pay suggestions are extracted from explicit USD salary/annual or hourly amounts in imported descriptions, pasted text, and PDF text. Conflicting rates leave pay blank for review, and manual form edits take precedence. Existing entries have a **Suggest pay from saved description** button; suggestions are saved only with your changes.
+
+Interview milestones may include optional `time` (`HH:MM`) and `timezone` (an IANA name such as `America/Denver`). The form defaults the timezone to America/Denver; cards display the entered local time and timezone. Dates remain separate for filtering and date-only records stay valid. Invalid times/timezones and times skipped by daylight saving transitions are rejected.

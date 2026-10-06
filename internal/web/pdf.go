@@ -74,5 +74,6 @@ func (s *Server) pdfPreview(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, err.Error())
 		return
 	}
+	j.Application = jobs.InferPay(j.DescriptionText)
 	reply(w, 200, j)
 }

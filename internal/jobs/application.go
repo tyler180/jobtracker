@@ -14,8 +14,21 @@ import (
 
 // InterviewDate records a screening or interview milestone.
 type InterviewDate struct {
-	Stage string `json:"stage"`
-	Date  string `json:"date"`
+	Stage    string `json:"stage"`
+	Date     string `json:"date"`
+	Time     string `json:"time,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
+}
+
+func (d InterviewDate) TimeLabel() string {
+	if d.Time == "" {
+		return ""
+	}
+	parsed, err := time.Parse("15:04", d.Time)
+	if err != nil {
+		return ""
+	}
+	return parsed.Format("3:04 PM") + " (" + d.Timezone + ")"
 }
 
 func (d InterviewDate) Label() string {
@@ -133,6 +146,26 @@ func (a Application) Validate() error {
 		if _, err := time.Parse("2006-01-02", milestone.Date); err != nil {
 			return errors.New("Interview dates must be valid dates in YYYY-MM-DD format")
 		}
+		if milestone.Time != "" {
+			if _, err := time.Parse("15:04", milestone.Time); err != nil {
+				return errors.New("Interview times must use HH:MM format")
+			}
+			if milestone.Timezone == "" || len(milestone.Timezone) > 100 {
+				return errors.New("Choose a timezone for the interview time")
+			}
+			location, err := time.LoadLocation(milestone.Timezone)
+			if err != nil {
+				return errors.New("Use a valid timezone such as America/Denver")
+			}
+			value := milestone.Date + " " + milestone.Time
+			parsed, err := time.ParseInLocation("2006-01-02 15:04", value, location)
+			if err != nil || parsed.Format("2006-01-02 15:04") != value {
+				return errors.New("This interview time does not exist in the selected timezone due to daylight saving time")
+			}
+		} else if milestone.Timezone != "" {
+			return errors.New("Add an interview time before choosing a timezone")
+		}
+
 	}
 	for _, date := range []string{a.AppliedDate, a.ResponseDate, a.ScreeningDate, a.Round1Date, a.Round2Date, a.Round3Date} {
 		if date != "" {

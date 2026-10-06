@@ -154,10 +154,20 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		return
 	}
 	if preview {
+		j.Application = jobs.InferPay(j.DescriptionText)
 		reply(w, 200, j)
 		return
 	}
 	if tracking {
+		if _, minSet := fields["pay_min"]; !minSet {
+			if _, maxSet := fields["pay_max"]; !maxSet {
+				suggestion := jobs.InferPay(j.DescriptionText)
+				application.PayMin, application.PayMax = suggestion.PayMin, suggestion.PayMax
+				if application.PayType == "" {
+					application.PayType = suggestion.PayType
+				}
+			}
+		}
 		if strings.TrimSpace(application.Company) == "" {
 			application.Company = strings.TrimSpace(j.Company)
 		}

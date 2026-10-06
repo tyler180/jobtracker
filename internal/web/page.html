@@ -50,7 +50,7 @@ function tracking(parent,a={},newEntry=false){
  if(a.interview_stage?.startsWith('round ')&&!stages.includes(a.interview_stage))stage.value='custom';
  function toggle(){interview.hidden=status.value!=='interview';stage.required=!interview.hidden;round.closest('label').hidden=stage.value!=='custom';round.required=!interview.hidden&&stage.value==='custom'}
  status.addEventListener('change',toggle);stage.addEventListener('change',toggle);toggle();
- const heading=el('h3','Screening & interview dates');parent.append(heading);
+ const heading=el('h3','Screening & interview dates and times');parent.append(heading);
  const dates=el('div');parent.append(dates);
  const existing=a.milestones??stages.flatMap((stage,i)=>a[dateNames[i+2]]?[{stage,date:a[dateNames[i+2]]}]:[]);
  function addDate(value={stage:'initial screening',date:''}){
@@ -58,9 +58,12 @@ function tracking(parent,a={},newEntry=false){
   const kind=select(row,'Date for','',['initial screening','interview round'],value.stage==='initial screening'?'initial screening':'interview round');kind.removeAttribute('name');
   const number=field(row,'Round number','',value.stage.startsWith('round ')?value.stage.slice(6):'1');number.removeAttribute('name');number.type='number';number.min=1;number.max=999999;
   const date=dateField(row,'Date','',value.date);date.removeAttribute('name');date.required=true;
+  const time=field(row,'Time (optional)','',value.time);time.removeAttribute('name');time.type='time';
+  const timezone=field(row,'Timezone','',value.timezone||'America/Denver');timezone.removeAttribute('name');timezone.maxLength=100;
+  function toggleTime(){timezone.closest('label').hidden=!time.value;timezone.required=!!time.value}time.addEventListener('input',toggleTime);toggleTime();
   function toggleRound(){number.closest('label').hidden=kind.value==='initial screening';number.required=kind.value!=='initial screening'}kind.addEventListener('change',toggleRound);toggleRound();
   const remove=el('button','Remove date');remove.type='button';remove.className='secondary';remove.addEventListener('click',()=>row.remove());row.append(remove);dates.append(row);
-  row.dateValue=()=>({stage:kind.value==='initial screening'?'initial screening':'round '+number.value,date:date.value});
+  row.dateValue=()=>({stage:kind.value==='initial screening'?'initial screening':'round '+number.value,date:date.value,time:time.value,timezone:time.value?timezone.value:''});
  }
  existing.forEach(addDate);
  const add=el('button','+ Add date');add.type='button';add.className='secondary';add.addEventListener('click',()=>{if(dates.children.length<100)addDate()});parent.append(add);
@@ -71,8 +74,11 @@ function tracking(parent,a={},newEntry=false){
 function formData(form){return {...Object.fromEntries(new FormData(form)),...form.trackingData()}}
 tracking(form.querySelector('.tracking'),{},true);
 const pastedDescription=form.querySelector('[name=description_text]'),postingURL=form.querySelector('[name=url]'),jobTitle=form.querySelector('[name=title]'),companyName=form.querySelector('[name=company]');
+let payEdited=false;
+for(const name of ['pay_min','pay_max','pay_type'])form.querySelector('[name='+name+']').addEventListener('input',()=>{payEdited=true});
+function fillPay(data,target=form){const a=data.application||{};if(target===form&&payEdited)return;for(const name of ['pay_min','pay_max','pay_type']){const input=target.querySelector('[name='+name+']');input.value=a[name]||(name==='pay_type'?'salary':'')}}
 let autoTitle='',autoCompany='',previewSequence=0,previewTimer;
-function fillMetadata(data){if(!jobTitle.value.trim()||jobTitle.value===autoTitle){jobTitle.value=data.title||'';autoTitle=jobTitle.value}if(!companyName.value.trim()||companyName.value===autoCompany){companyName.value=data.company||'';autoCompany=companyName.value}}
+function fillMetadata(data){fillPay(data);if(!jobTitle.value.trim()||jobTitle.value===autoTitle){jobTitle.value=data.title||'';autoTitle=jobTitle.value}if(!companyName.value.trim()||companyName.value===autoCompany){companyName.value=data.company||'';autoCompany=companyName.value}}
 async function previewPosting(sequence){const url=postingURL.value.trim(),description=pastedDescription.value;if(sequence!==previewSequence||(!url&&!description.trim())||!postingURL.checkValidity())return;message.textContent=description.trim()?'Reading company and title from the pasted description…':'Retrieving job title and company…';try{const result=await request('/api/jobs/preview','POST',{url,description_text:description});if(sequence!==previewSequence||postingURL.value.trim()!==url||pastedDescription.value!==description)return;fillMetadata(result.data);if(result.data.description_required){message.textContent='Could not import this Upstart posting automatically. Company and title were filled from the URL. Paste the full description below, then click Save application. Nothing has been saved yet.'}else if(description.trim()){message.textContent=jobTitle.value.trim()&&companyName.value.trim()?'Company and title filled from the description where identifiable. Review them, then click Save application.':'Could not identify every field. Enter the missing company or job title, then click Save application.'}else{message.textContent='Company and title retrieved. Review them, then click Save application. Nothing has been saved yet.'}}catch(e){if(sequence===previewSequence)message.textContent=e.message+' Paste the full description below to save it.'}}
 function schedulePreview(immediate=false){postingURL.required=!pastedDescription.value.trim();clearTimeout(previewTimer);const sequence=++previewSequence;previewTimer=setTimeout(()=>previewPosting(sequence),immediate?0:350)}
 const pdfUpload=document.querySelector('#pdf-upload');let pdfSequence=0;
@@ -100,7 +106,10 @@ function render(){
  const a=j.application||{},edit=el('form');root.append(edit);
  const company=field(edit,'Company name','company',a.company||j.company);company.required=true;company.maxLength=300;
  const title=field(edit,'Job title','title',a.title||j.title);title.required=true;title.maxLength=300;
- tracking(edit,a);const save=el('button','Save changes');edit.append(save);
+ tracking(edit,a);
+ const infer=el('button','Suggest pay from saved description');infer.type='button';infer.className='secondary';edit.append(infer);
+ infer.addEventListener('click',async()=>{infer.disabled=true;try{const result=await request('/api/jobs/preview','POST',{description_text:j.description_text});if(!result.data.application?.pay_min){feedback.textContent='No unambiguous salary or hourly rate found. Enter pay manually.';return}fillPay(result.data,edit);feedback.textContent='Pay suggested from the saved description. Review it, then save changes.'}catch(e){feedback.textContent=e.message}finally{infer.disabled=false}});
+ const save=el('button','Save changes');edit.append(save);
  const feedback=el('p');feedback.setAttribute('role','status');edit.append(feedback);
  edit.addEventListener('submit',async e=>{e.preventDefault();save.disabled=true;try{await request('/api/jobs/'+j.id+'/application','PUT',formData(edit));location.assign('/')}catch(e){feedback.textContent=e.message;save.disabled=false}});
  const remove=el('button','Delete entry');remove.type='button';remove.className='delete';remove.addEventListener('click',async()=>{if(!confirm('Delete this entry and its saved description?'))return;remove.disabled=true;try{await request('/api/jobs/'+j.id,'DELETE');location.assign('/')}catch(e){feedback.textContent=e.message;remove.disabled=false}});edit.append(remove);
