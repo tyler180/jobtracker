@@ -34,7 +34,7 @@ func TestApplicationLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := "/api/jobs/" + original.ID + "/application"
-	for _, body := range []string{`{"company":"Acme","title":"Engineer","status":"invalid"}`, `{"company":"Acme","title":"Engineer","status":"interview"}`, `{"company":"Acme","title":"Engineer","status":"applied","status":"interview"}`, `{"company":"Acme","title":"Engineer","status":"applied"} {}`, `{"company":null}`, `{"company":"Acme","title":"Engineer","status":"interview","interview_stage":"round 4"}`} {
+	for _, body := range []string{`{"company":"Acme","title":"Engineer","status":"invalid"}`, `{"company":"Acme","title":"Engineer","status":"interview"}`, `{"company":"Acme","title":"Engineer","status":"applied","status":"interview"}`, `{"company":"Acme","title":"Engineer","status":"applied"} {}`, `{"company":null}`, `{"company":"Acme","title":"Engineer","status":"interview","interview_stage":"round 0"}`} {
 		if w := send("PUT", path, body); w.Code != 400 {
 			t.Fatal(w.Code, w.Body)
 		}
@@ -367,5 +367,60 @@ func TestEditEntryPreservesStatusAndBlankDates(t *testing.T) {
 				t.Fatal("editing changed status, dates, or archived fields")
 			}
 		})
+	}
+}
+
+func TestFlexibleInterviewDates(t *testing.T) {
+	store, err := jobs.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, _, err := store.Save(jobs.Job{Company: "Original", Title: "Original role", DescriptionText: "Archived description", Application: jobs.Application{Company: "Acme", Title: "Engineer", Status: "interview", InterviewStage: "round 1", ScreeningDate: "2026-09-20", Round1Date: "2026-09-25"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := New(store, &fake{})
+	path := "/api/jobs/" + original.ID + "/application"
+	send := func(body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("PUT", path, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	for _, body := range []string{
+		`{"company":"Acme","title":"Engineer","milestones":null}`,
+		`{"company":"Acme","title":"Engineer","milestones":[{"stage":"round 0","date":"2026-10-01"}]}`,
+		`{"company":"Acme","title":"Engineer","milestones":[{"stage":"round 4","date":"2026-02-30"}]}`,
+	} {
+		if w := send(body); w.Code != 400 {
+			t.Fatalf("invalid dates accepted: %d %s", w.Code, w.Body)
+		}
+	}
+	w := send(`{"company":"Acme","title":"Engineer","status":"interview","interview_stage":"round 4","milestones":[{"stage":"initial screening","date":"2026-09-20"},{"stage":"round 1","date":"2026-09-25"},{"stage":"round 4","date":"2026-10-01"},{"stage":"round 4","date":"2026-10-02"}]}`)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
+	saved, err := store.Get(original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Application.InterviewDates()) != 4 || saved.Application.Round1Date != "" || saved.DescriptionText != original.DescriptionText || saved.Title != original.Title {
+		t.Fatalf("unexpected saved entry: %+v", saved)
+	}
+	home := httptest.NewRecorder()
+	handler.ServeHTTP(home, httptest.NewRequest("GET", "/", nil))
+	for _, want := range []string{"Round 4", "2026-10-02", "/new", "/edit?id="} {
+		if !strings.Contains(home.Body.String(), want) {
+			t.Fatalf("home missing %s", want)
+		}
+	}
+	w = send(`{"company":"Acme","title":"Engineer","status":"interview","interview_stage":"round 4","milestones":[]}`)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
+	saved, _ = store.Get(original.ID)
+	if len(saved.Application.InterviewDates()) != 0 {
+		t.Fatal("removed dates reappeared")
 	}
 }

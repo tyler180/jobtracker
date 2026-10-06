@@ -27,7 +27,9 @@ func New(store *jobs.Store, importer Fetcher) http.Handler {
 	s := &Server{store: store, importer: importer, slots: make(chan struct{}, 4)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
-	mux.HandleFunc("GET /{$}", s.home)
+	mux.HandleFunc("GET /{$}", s.entries)
+	mux.HandleFunc("GET /new", s.home)
+	mux.HandleFunc("GET /edit", s.home)
 	mux.HandleFunc("GET /entries", s.entries)
 	mux.HandleFunc("GET /api/jobs", s.list)
 	mux.HandleFunc("POST /api/jobs", s.save)
@@ -77,7 +79,7 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		fail(w, 415, "Use application/json without content encoding")
 		return
 	}
-	allowed := []string{"url", "description_text", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
+	allowed := []string{"url", "description_text", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "milestones", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
 	if preview {
 		allowed = []string{"url", "description_text"}
 	}
