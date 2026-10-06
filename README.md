@@ -2,6 +2,8 @@
 
 A self-hosted Go app that saves job descriptions before the posting disappears. Paste a supported posting URL into the web page, or paste the description with a company name and title. A source URL is optional when a description is provided. The archive retains the job title, company/board identifier, location, canonical source URL, original description HTML, readable text, and UTC save time.
 
+PDF uploads extract text for review before saving (up to 5 MB and 64,000 bytes of extracted text). The archive keeps the reviewed text, not the original PDF. Scanned or encrypted PDFs need a pasted description. Pay ranges are optional USD amounts, with annual salary or hourly rate, and can be edited later.
+
 ## Run locally
 
 Requires Go 1.26 or newer:
@@ -80,7 +82,7 @@ curl -X POST http://127.0.0.1:8080/api/jobs \
 
 `POST /api/jobs/preview` accepts a posting URL or pasted description and returns extracted posting details without saving an archive. An optional `description_text` field previews metadata inferred from pasted text, without an outbound request. If an Upstart import fails, preview returns URL-derived metadata with `description_required: true`; saving still requires a real description. Preview uses the same import limits as saving. Preview request bodies are limited to 128 KiB.
 
-To create a tracked application, include `company`, `title`, and `status` alongside `url` or `description_text` in `POST /api/jobs`. Optional fields are `interview_stage`, `interview_notes`, `next_steps`, and `milestones`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
+To create a tracked application, include `company`, `title`, and `status` alongside `url` or `description_text` in `POST /api/jobs`. Optional fields are `pay_min`, `pay_max`, `pay_type` (`salary` or `hourly`), `interview_stage`, `interview_notes`, `next_steps`, and `milestones`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
 
 `PATCH /api/jobs/{id}/dates` updates only the supplied date fields (the six fields listed below). Use an empty string to clear a date; omitted dates and all other application fields are preserved, with no automatic date defaults. This works for tracked applications and saved postings without marking them applied. Invalid dates or fields return 400 and missing jobs return 404.
 
@@ -119,3 +121,7 @@ kubectl kustomize deploy
 Tests cover provider payloads, URL validation, absent/malformed descriptions, readable conversion, persistent first-snapshot behavior, and HTTP request boundaries. GitHub Actions also builds the container. Live smoke verification on October 2, 2026 saved a public posting from Ashby's own board, Cloudflare's Greenhouse board, and NVIDIA's Workday site. This is compatibility evidence for those endpoints, not a guarantee for every tenant.
 
 Interview dates are stored in `milestones`, an array such as `[{"stage":"initial screening","date":"2026-10-05"},{"stage":"round 4","date":"2026-10-12"}]`. Up to 100 dates can be recorded, including repeated stages. Supply `[]` to remove all interview dates; omit the collection on an update to preserve it. Screening and round 1–3 fields in older files are displayed and converted when edited through the form. Legacy application date fields use `YYYY-MM-DD`: `applied_date`, `response_date`, `screening_date`, `round_1_date`, `round_2_date`, and `round_3_date`. The form defaults the applied date to today in your browser's timezone. When dates are blank, the server defaults the applied date, the response date for interview/rejection status, and the selected interview stage date to today in America/Denver. Dates for events that have not occurred remain blank. Provided dates and dates from prior interview stages are retained. Existing files are not backfilled until edited; omitted date fields on updates preserve existing values.
+
+Local PDF importing requires Poppler (`pdftotext`) on PATH; the container includes it. On macOS, install it with `brew install poppler`.
+
+`POST /api/jobs/pdf` accepts a raw `application/pdf` body without content encoding and returns extracted text and inferred metadata without saving. It shares the four import slots, caps uploads at 5 MiB, extracted text at 64,000 bytes, and processing at 15 seconds. Text is processed through stdin/stdout without temporary files.

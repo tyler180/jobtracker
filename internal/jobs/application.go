@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	_ "time/tzdata"
@@ -46,6 +47,9 @@ func (a Application) InterviewDates() []InterviewDate {
 
 // Application contains editable tracking information, separate from the saved posting.
 type Application struct {
+	PayMin        string          `json:"pay_min"`
+	PayMax        string          `json:"pay_max"`
+	PayType       string          `json:"pay_type"`
 	Milestones    []InterviewDate `json:"milestones"`
 	AppliedDate   string          `json:"applied_date"`
 	ResponseDate  string          `json:"response_date"`
@@ -62,7 +66,63 @@ type Application struct {
 	NextSteps      string `json:"next_steps"`
 }
 
+var payAmount = regexp.MustCompile(`^(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,2})?$`)
+
+func (a Application) PayLabel() string {
+	if a.PayMin == "" && a.PayMax == "" {
+		return ""
+	}
+	amount := a.PayMin
+	if amount == "" {
+		amount = "Up to $" + a.PayMax
+	} else {
+		amount = "$" + amount
+		if a.PayMax != "" && a.PayMax != a.PayMin {
+			amount += " – $" + a.PayMax
+		} else if a.PayMax == "" {
+			amount += "+"
+		}
+	}
+	unit := " / year"
+	if a.PayType == "hourly" {
+		unit = " / hour"
+	}
+	return amount + unit
+}
+
 func (a Application) Validate() error {
+	if a.PayType != "" && a.PayType != "salary" && a.PayType != "hourly" {
+		return errors.New("Choose salary or hourly pay")
+	}
+	values := make([]int64, 2)
+	for i, amount := range []string{a.PayMin, a.PayMax} {
+		if amount == "" {
+			continue
+		}
+		if !payAmount.MatchString(amount) {
+			return errors.New("Pay amounts must be positive numbers with at most two decimal places")
+		}
+		parts := strings.SplitN(amount, ".", 2)
+		whole, _ := strconv.ParseInt(parts[0], 10, 64)
+		values[i] = whole * 100
+		if len(parts) == 2 {
+			cents, _ := strconv.ParseInt(parts[1], 10, 64)
+			if len(parts[1]) == 1 {
+				cents, _ = strconv.ParseInt(parts[1]+"0", 10, 64)
+			}
+			values[i] += cents
+		}
+		if values[i] <= 0 {
+			return errors.New("Pay amounts must be greater than zero")
+		}
+	}
+	if (a.PayMin != "" || a.PayMax != "") && a.PayType == "" {
+		return errors.New("Choose salary or hourly pay")
+	}
+	if a.PayMin != "" && a.PayMax != "" && values[0] > values[1] {
+		return errors.New("Minimum pay must be on or below maximum pay")
+	}
+
 	if len(a.Milestones) > 100 {
 		return errors.New("Use at most 100 interview dates")
 	}

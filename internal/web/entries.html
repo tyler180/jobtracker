@@ -23,6 +23,7 @@
 {{range .}}
 <article class="entry-card" data-applied="{{.Application.AppliedDate}}" data-status="{{.Application.Status}}" data-saved="{{.SavedAt.Format "2006-01-02T15:04:05.000000000Z07:00"}}" data-saved-date="{{.SavedAt.Format "2006-01-02"}}" data-response="{{.Application.ResponseDate}}" data-dates="{{.Application.AppliedDate}} {{range .Application.InterviewDates}}{{.Date}} {{end}}">
 <div class="entry-top"><div><h2>{{if .Application.Company}}{{.Application.Company}}{{else}}{{.Company}}{{end}}</h2><p class="job-title"><strong>{{if .Application.Title}}{{.Application.Title}}{{else}}{{.Title}}{{end}}</strong>{{if .Location}}<span class="job-location" hidden> · {{.Location}}</span>{{end}}</p><p class="entry-meta">{{if .Application.InterviewStage}}{{.Application.InterviewStage}} · {{end}}Saved {{.SavedAt.Format "Jan 2, 2006"}}</p></div><p class="status-pill">{{if .Application.Status}}{{.Application.Status}}{{else}}Saved posting only{{end}}</p></div>
+{{with .Application.PayLabel}}<p class="entry-meta"><strong>Pay:</strong> {{.}} USD</p>{{end}}
 <p class="entry-links"><a href="/edit?id={{.ID}}">Edit entry</a><a href="/jobs/{{.ID}}">Read saved description</a>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Open original posting ↗</a>{{end}}</p>
 {{if or .Application.AppliedDate .Application.ResponseDate .Application.InterviewDates}}<div class="date-wrap"><dl class="dates">
 {{with .Application.AppliedDate}}<div><dt>Applied date</dt><dd>{{.}}</dd></div>{{end}}
