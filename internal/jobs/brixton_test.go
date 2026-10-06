@@ -28,6 +28,10 @@ func TestBrixton(t *testing.T) {
 	if j.Provider != "brixton" || j.Company != "The Brixton Group" || j.Title != "Sr. AI Platform Engineer (Cloud & Database)" || j.Location != "Fort Collins, CO" || j.URL != source {
 		t.Fatalf("metadata: %+v", j)
 	}
+	pay := InferPay(j.DescriptionText)
+	if pay.PayMin != "140000" || pay.PayMax != "195000" || pay.PayType != "salary" {
+		t.Fatalf("pay: %+v", pay)
+	}
 	for _, text := range []string{"$140k-195k", "Requirements:", "Responsibilities:", "Ideal Profile:", "26-00902", "AI-driven capabilities."} {
 		if !strings.Contains(j.DescriptionText, text) {
 			t.Errorf("missing %q", text)

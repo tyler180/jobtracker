@@ -5,6 +5,9 @@ import "testing"
 func TestInferPay(t *testing.T) {
 	for _, tc := range []struct{ text, min, max, kind string }{
 		{"Salary (permanent) $130,000–$180,000 base + ~10% annual bonus", "130000", "180000", "salary"},
+		{"Compensation: $140k-195k Base + Bonus + Benefits", "140000", "195000", "salary"},
+		{"Learning budget $5k and database work", "", "", ""},
+		{"Compensation: $80 base + tips", "", "", ""},
 		{"Annual salary: $130k to $180K", "130000", "180000", "salary"},
 		{"Hourly rate: $65.50 - $90.25 per hour", "65.5", "90.25", "hourly"},
 		{"Pay $80/hr", "80", "80", "hourly"},
