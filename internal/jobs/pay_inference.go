@@ -9,6 +9,7 @@ import (
 var descriptionPay = regexp.MustCompile(`(?i)\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?\s*[kK]?)(?:\s*(?:-|–|—|to)\s*\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?\s*[kK]?))?`)
 var hourlyPay = regexp.MustCompile(`(?i)(?:\b(?:hourly|per hour|an hour)\b|/\s*(?:hr|hour)\b)`)
 var annualPay = regexp.MustCompile(`(?i)\b(?:salary|annual|annually|per year|a year|base pay|base salary)\b|/\s*(?:yr|year)\b`)
+var abbreviatedBasePay = regexp.MustCompile(`(?i)\$\s*[0-9]+(?:\.[0-9]{1,2})?\s*k(?:\s*(?:-|–|—|to)\s*\$?\s*[0-9]+(?:\.[0-9]{1,2})?\s*k)?\s+base\b`)
 var otherCurrency = regexp.MustCompile(`(?i)\b(?:CAD|AUD|NZD|SGD|HKD|Canadian|Australian)\b`)
 
 // InferPay returns one unambiguous USD rate, leaving conflicting offers blank.
@@ -24,7 +25,7 @@ func InferPay(description string) Application {
 		if hourlyPay.MatchString(line) {
 			kind = "hourly"
 		}
-		if annualPay.MatchString(line) {
+		if annualPay.MatchString(line) || abbreviatedBasePay.MatchString(line) {
 			if kind != "" {
 				return Application{}
 			}
