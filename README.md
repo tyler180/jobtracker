@@ -1,6 +1,6 @@
 # Job tracker
 
-A self-hosted Go app that saves job descriptions before the posting disappears. Paste a supported posting URL into the web page, or paste the description with a company name, title, and HTTPS source URL from another careers site; the archive retains the job title, company/board identifier, location, canonical source URL, original description HTML, readable text, and UTC save time.
+A self-hosted Go app that saves job descriptions before the posting disappears. Paste a supported posting URL into the web page, or paste the description with a company name and title. A source URL is optional when a description is provided. The archive retains the job title, company/board identifier, location, canonical source URL, original description HTML, readable text, and UTC save time.
 
 ## Run locally
 
@@ -12,7 +12,7 @@ go run ./cmd/jobtracker
 
 Open http://127.0.0.1:8080. Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. The application form fills company (the provider board/tenant identifier, which you can correct) and job title automatically when you enter a posting URL; you can override it. A blank title at save time uses the title extracted from the posting. Previewing a URL does not save it. The application form records your company name, job title, posting URL, and status: applied, waiting for response, not moving forward, or interview. Interview tracking includes initial screening, round 1, round 2, or round 3, notes on how it went, and next steps. All applications appear in a status-filterable overview with links to their locally saved descriptions. Change status directly using the dropdown in each row; selecting interview uses the previous stage or initial screening, and displays a stage dropdown. The Delete button asks for confirmation and removes both the application and its saved description. Use the Edit button in the main overview to open company, title, notes, next steps, and date fields to edit the entry; existing archives appear as “Saved posting only” until tracking details are added. Interview notes and next steps remain editable in every status. Edit entry also supports saved-only postings without marking them applied. Editing details while keeping the same status and stage preserves blank dates.
 
-For Ashby, Greenhouse, and Workday, the archived company field is the provider's board/tenant identifier rather than a verified legal company name. Upstart uses its company name; pasted descriptions use extracted or entered metadata. Saving a URL again retains the first snapshot, without overwriting its description or save date.
+For Ashby, Greenhouse, and Workday, the archived company field is the provider's board/tenant identifier rather than a verified legal company name. Upstart, Ford, and Principal use their company names. LinkedIn and generic job pages use the company published in the posting; pasted descriptions use extracted or entered metadata. Saving a URL again retains the first snapshot, without overwriting its description or save date.
 
 Configuration:
 
@@ -29,15 +29,33 @@ Configuration:
 - Upstart: `https://careers.upstart.com/jobs/{slug-and-UUID}`. Extracts the rendered title and description. If the site blocks automated requests, preview offers editable company/title suggestions from the URL and asks you to paste the description; it does not save an incomplete job.
 - Workday: `https://{tenant}.wd{number}.myworkdayjobs.com/{locale}/{site}/job/{location}/{slug}`. Locale is optional; `/apply` links are accepted. Uses the careers site's JSON detail endpoint.
 
-Tracking query parameters and fragments are removed from saved URLs. Custom company domains, Greenhouse embedded boards, short links, and redirects are not supported for automatic import. For blocked Upstart requests and other careers sites, copy the full description (including its title) into the optional **Job description** field and enter its HTTPS URL. The form fills company and title from recognizable headings or explicit labels; enter missing fields manually. Your own edits take precedence over suggestions. Saving pasted text makes no outbound request and works even when a site blocks automated imports. Pasted descriptions are stored as plain text (up to 64,000 bytes), with provider `manual`; no original HTML is captured. The first saved snapshot is retained on duplicate saves. Tracking query parameters and fragments are also removed from these source URLs. No ATS account or API key is needed. Closed, private, missing, or blocked postings cannot be recovered: save while the job is available. Workday's careers endpoint is not a documented stable public API and may change or differ between tenants. No browser automation or CAPTCHA bypass is attempted.
-
-Provider references: [Ashby public postings API](https://developers.ashbyhq.com/docs/public-job-posting-api), [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html).
-
-Open `/entries` (or choose **Read entries**) to browse saved jobs, application status, dates, interview notes, and next steps. Full descriptions are available through the Saved description link. Each date has its own read-only column on this page. Edit dates in the main Job tracker page, where each application row has six date columns and a Save dates button. Clearing a date leaves it blank; editing dates does not change status or notes. Entries can be searched and sorted by applied date (newest first), most recent activity (the latest saved, applied, response, or interview date), or status. Status order is applied, waiting for response, interview, then not moving forward, with saved-only postings last. Missing applied dates sort last.
-
 Ford Motor Company (`www.careers.ford.com/job/.../48560/...`) and Principal (`careers.principal.com/careers-home/jobs/...`) postings can also be imported automatically. The importer reads their published job data to fill company, title, location, and the full description. Tracking parameters are removed from saved URLs. If a posting is unavailable or blocks importing, use the pasted-description fallback.
 
 Other public HTTPS job pages can be imported when they publish inline Schema.org `JobPosting` data with a company, title, and description. The importer supports standalone objects, arrays, and `@graph` documents; it matches the requested URL and refuses ambiguous postings. Essential query parameters are retained and common tracking parameters are removed. No scripts are executed, schema links are not fetched, and redirects remain disabled. Pages without complete job data, login-only pages, and blocked requests require pasting the description.
+
+Provider-specific URLs are canonicalized and tracking parameters removed. Custom company domains can be imported when they contain complete inline JobPosting data. Short links, redirects, and Greenhouse embedded-board URLs are not supported by the provider-specific importer. For blocked Upstart requests and other careers sites, copy the full description (including its title) into the optional **Job description** field with an optional HTTPS source URL. The form fills company and title from recognizable headings or explicit labels; enter missing fields manually. Your own edits take precedence over suggestions. Saving pasted text makes no outbound request and works even when a site blocks automated imports. Pasted descriptions are stored as plain text (up to 64,000 bytes), with provider `manual`; no original HTML is captured. For entries with a URL, the first saved snapshot is retained on duplicate saves. Each save without a URL creates a separate entry, even if the pasted description is identical. Entries without a URL omit the Original posting link. Tracking query parameters and fragments are also removed from these source URLs. No ATS account or API key is needed. Closed, private, missing, or blocked postings cannot be recovered: save while the job is available. Workday's careers endpoint is not a documented stable public API and may change or differ between tenants. No browser automation or CAPTCHA bypass is attempted.
+
+Provider references:
+
+- [Ashby public postings API](https://developers.ashbyhq.com/docs/public-job-posting-api) and [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html): documented APIs used by the importers.
+- [LinkedIn Jobs](https://www.linkedin.com/jobs/), [Upstart careers](https://careers.upstart.com/home), [Ford careers](https://www.careers.ford.com/), and [Principal careers](https://careers.principal.com/careers-home): posting sites supported by the importers. These references are career pages, not API contracts.
+- [Workday recruiting](https://www.workday.com/en-us/products/talent-management/recruiting.html): provider background. The importer uses tenant-specific careers endpoints, not a documented public API.
+- [Schema.org JobPosting](https://schema.org/JobPosting): the structured data format used for generic public job pages.
+
+## Reading, filtering, and sorting entries
+
+Open `/entries` (or choose **Read entries**) to browse saved jobs, application status, dates, interview notes, and next steps. Open **Saved description** to read the full archived posting. Empty date fields are hidden, and **Show location** lets you display posting locations.
+
+Search by company, title, or notes. Start and end dates filter entries that have an **applied, initial screening, or interview round date** within the inclusive range. Saved and response dates do not qualify an entry. Leave either boundary blank for an open-ended range; the start date must not be after the end date. Text search and date filters work together.
+
+Sort options are:
+
+- **Applied date — newest to oldest** or **oldest to newest**: sorts by the applied date, with missing applied dates last.
+- **Progress date — oldest to newest** or **newest to oldest**: uses each entry's earliest or latest matching applied, screening, or interview date. With a range selected, only dates inside that range determine the order. Entries without eligible dates appear last.
+- **Most recent activity**: uses the latest saved, applied, response, screening, or interview date.
+- **Status**: applied, waiting for response, interview, then not moving forward, with saved-only postings last.
+
+Edit dates on the main Job tracker page, where each application row has six date fields and a **Save dates** button. Clearing a date leaves it blank; saving dates does not change status or notes. **Edit** opens the complete application editor.
 
 ## API
 
@@ -48,13 +66,21 @@ curl -X POST http://127.0.0.1:8080/api/jobs \
 curl http://127.0.0.1:8080/api/jobs
 ```
 
-`POST /api/jobs` also accepts `description_text` with `company`, `title`, and an application `status` to archive pasted text from any HTTPS posting URL. A nonblank description bypasses automatic import; missing company and title are inferred where identifiable and must be supplied manually otherwise. A blank description uses the existing automatic importer. Manual URLs cannot contain credentials or custom ports. Save and preview request bodies are limited to 128 KiB; application updates retain their 32 KiB limit.
+`POST /api/jobs` also accepts `description_text` with `company`, `title`, and an application `status` to archive pasted text. The URL is optional when `description_text` is nonblank. A nonblank description bypasses automatic import; missing company and title are inferred where identifiable and must be supplied manually otherwise. A blank description uses the existing automatic importer. Manual URLs cannot contain credentials or custom ports. Save and preview request bodies are limited to 128 KiB; application updates retain their 32 KiB limit.
+
+For a description-only tracked application:
+
+```sh
+curl -X POST http://127.0.0.1:8080/api/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"company":"Example company","title":"Platform Engineer","status":"applied","description_text":"Build and operate the platform."}'
+```
 
 `POST /api/jobs` returns the snapshot with status 201 for a new posting, or 200 for an existing one. Invalid URL/JSON returns 400, unsupported content type 415, import capacity exceeded 429, provider failure 502, and archive failure 500. `GET /api/jobs` returns saved postings newest first. `GET /healthz` is a process health probe.
 
-`POST /api/jobs/preview` accepts a posting URL and returns extracted posting details without saving an archive. An optional `description_text` field previews metadata inferred from pasted text, without an outbound request. If an Upstart import fails, preview returns URL-derived metadata with `description_required: true`; saving still requires a real description. Preview uses the same import limits as saving. Preview request bodies are limited to 128 KiB.
+`POST /api/jobs/preview` accepts a posting URL or pasted description and returns extracted posting details without saving an archive. An optional `description_text` field previews metadata inferred from pasted text, without an outbound request. If an Upstart import fails, preview returns URL-derived metadata with `description_required: true`; saving still requires a real description. Preview uses the same import limits as saving. Preview request bodies are limited to 128 KiB.
 
-To create a tracked application, include `company`, `title`, and `status` alongside `url` in `POST /api/jobs`. Optional fields are `interview_stage`, `interview_notes`, and `next_steps`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
+To create a tracked application, include `company`, `title`, and `status` alongside `url` or `description_text` in `POST /api/jobs`. Optional fields are `interview_stage`, `interview_notes`, and `next_steps`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
 
 `PATCH /api/jobs/{id}/dates` updates only the supplied date fields (the six fields listed below). Use an empty string to clear a date; omitted dates and all other application fields are preserved, with no automatic date defaults. This works for tracked applications and saved postings without marking them applied. Invalid dates or fields return 400 and missing jobs return 404.
 
@@ -62,15 +88,15 @@ To create a tracked application, include `company`, `title`, and `status` alongs
 
 `PUT /api/jobs/{id}/application` replaces tracking details using the same application fields (without `url`). Company and title are required and limited to 300 bytes each; notes and next steps are limited to 10,000 bytes each. Invalid fields return 400 and missing jobs return 404. `GET /jobs/{id}` displays the escaped, locally archived description without fetching the original posting.
 
-The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Requests are restricted to provider endpoints, with no proxies or redirects and no connections to private IP addresses. The app has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. Do not expose the service publicly before access controls are configured. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
+The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Provider imports use their specific endpoints; generic imports fetch the requested public HTTPS page, with no proxies or redirects and no connections to private IP addresses. The app has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. Do not expose the service publicly before access controls are configured. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
 
 ## Container and Talos GitOps
 
 ```sh
-docker build -t jobtracker:v0.1.0 .
+docker build -t jobtracker:local .
 docker run --rm -p 127.0.0.1:8080:8080 \
   --read-only --cap-drop=ALL --security-opt=no-new-privileges \
-  -v jobtracker-data:/data jobtracker:v0.1.0
+  -v jobtracker-data:/data jobtracker:local
 ```
 
 The `/data` volume must be writable by UID/GID 65532. Existing bind-mounted directories may need ownership prepared first.
