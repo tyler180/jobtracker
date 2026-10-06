@@ -41,9 +41,9 @@ func parse(raw string) (target, error) {
 		return target{}, ErrURL
 	}
 	host := strings.ToLower(u.Hostname())
-	known := host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
+	known := host == "www.brixton.net" || host == "brixton.net" || host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
 	if !known {
-		for _, providerHost := range []string{"www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
+		for _, providerHost := range []string{"www.brixton.net", "brixton.net", "www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
 			if strings.HasPrefix(host, providerHost+".") {
 				return target{}, ErrURL
 			}
@@ -58,6 +58,14 @@ func parse(raw string) (target, error) {
 	}
 	t := target{}
 	switch {
+	case host == "www.brixton.net" || host == "brixton.net":
+		query, err := url.ParseQuery(u.RawQuery)
+		if err != nil || len(p) != 1 || p[0] != "job-detail" || len(query["job"]) != 1 || !segment.MatchString(query.Get("job")) || len(query.Get("job")) > 250 {
+			return t, ErrURL
+		}
+		id := query.Get("job")
+		canonical := "https://www.brixton.net/job-detail/?job=" + url.QueryEscape(id)
+		t = target{"brixton", "The Brixton Group", id, canonical, canonical}
 	case host == "www.careers.ford.com":
 		if len(p) != 5 || p[0] != "job" || p[3] != "48560" || !numericID.MatchString(p[4]) {
 			return t, ErrURL
@@ -169,7 +177,7 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 		return Job{}, err
 	}
 	req.Header.Set("Accept", "application/json")
-	if t.provider == "upstart" || t.provider == "linkedin" || t.provider == "ford" || t.provider == "principal" || t.provider == "generic" {
+	if t.provider == "brixton" || t.provider == "upstart" || t.provider == "linkedin" || t.provider == "ford" || t.provider == "principal" || t.provider == "generic" {
 		req.Header.Set("Accept", "text/html")
 	}
 	req.Header.Set("User-Agent", "JobTracker/0.1")
@@ -190,6 +198,10 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 	}
 	j := Job{Provider: t.provider, Company: t.company, URL: t.canonical}
 	switch t.provider {
+	case "brixton":
+		if err := importBrixton(body, t, &j); err != nil {
+			return Job{}, err
+		}
 	case "ford", "principal", "generic":
 		if err := importStructuredPosting(body, t, &j); err != nil {
 			return Job{}, err
