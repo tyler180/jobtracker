@@ -11,14 +11,48 @@ import (
 	_ "time/tzdata"
 )
 
+// InterviewDate records a screening or interview milestone.
+type InterviewDate struct {
+	Stage string `json:"stage"`
+	Date  string `json:"date"`
+}
+
+func (d InterviewDate) Label() string {
+	if d.Stage == "initial screening" {
+		return "Initial screening"
+	}
+	return "Round " + strings.TrimPrefix(d.Stage, "round ")
+}
+
+var roundStage = regexp.MustCompile(`^round [1-9][0-9]{0,5}$`)
+
+func validStage(stage string) bool {
+	return stage == "initial screening" || roundStage.MatchString(stage)
+}
+
+// InterviewDates includes older saved milestones without changing archived files.
+func (a Application) InterviewDates() []InterviewDate {
+	if a.Milestones != nil {
+		return a.Milestones
+	}
+	dates := []InterviewDate{}
+	for i, date := range []string{a.ScreeningDate, a.Round1Date, a.Round2Date, a.Round3Date} {
+		if date != "" {
+			dates = append(dates, InterviewDate{Stage: []string{"initial screening", "round 1", "round 2", "round 3"}[i], Date: date})
+		}
+	}
+	return dates
+}
+
 // Application contains editable tracking information, separate from the saved posting.
 type Application struct {
-	AppliedDate   string `json:"applied_date"`
-	ResponseDate  string `json:"response_date"`
-	ScreeningDate string `json:"screening_date"`
-	Round1Date    string `json:"round_1_date"`
-	Round2Date    string `json:"round_2_date"`
-	Round3Date    string `json:"round_3_date"`
+	Milestones    []InterviewDate `json:"milestones"`
+	AppliedDate   string          `json:"applied_date"`
+	ResponseDate  string          `json:"response_date"`
+	ScreeningDate string          `json:"screening_date"`
+	Round1Date    string          `json:"round_1_date"`
+	Round2Date    string          `json:"round_2_date"`
+	Round3Date    string          `json:"round_3_date"`
 
 	Company        string `json:"company"`
 	Title          string `json:"title"`
@@ -29,6 +63,17 @@ type Application struct {
 }
 
 func (a Application) Validate() error {
+	if len(a.Milestones) > 100 {
+		return errors.New("Use at most 100 interview dates")
+	}
+	for _, milestone := range a.Milestones {
+		if !validStage(milestone.Stage) {
+			return errors.New("Choose initial screening or an interview round")
+		}
+		if _, err := time.Parse("2006-01-02", milestone.Date); err != nil {
+			return errors.New("Interview dates must be valid dates in YYYY-MM-DD format")
+		}
+	}
 	for _, date := range []string{a.AppliedDate, a.ResponseDate, a.ScreeningDate, a.Round1Date, a.Round2Date, a.Round3Date} {
 		if date != "" {
 			if _, err := time.Parse("2006-01-02", date); err != nil {
@@ -44,9 +89,7 @@ func (a Application) Validate() error {
 	default:
 		return errors.New("Choose a valid application status")
 	}
-	switch a.InterviewStage {
-	case "", "initial screening", "round 1", "round 2", "round 3":
-	default:
+	if a.InterviewStage != "" && !validStage(a.InterviewStage) {
 		return errors.New("Choose a valid interview stage")
 	}
 	if a.Status == "interview" && a.InterviewStage == "" {
@@ -165,6 +208,20 @@ func (a *Application) DefaultDates(today string) {
 	}
 	if a.ResponseDate == "" && (a.Status == "interview" || a.Status == "not moving forward") {
 		a.ResponseDate = today
+	}
+	if a.Status == "interview" && a.Milestones == nil && roundStage.MatchString(a.InterviewStage) && a.InterviewStage != "round 1" && a.InterviewStage != "round 2" && a.InterviewStage != "round 3" {
+		a.Milestones = a.InterviewDates()
+	}
+	if a.Status == "interview" && a.Milestones != nil {
+		for _, date := range a.Milestones {
+			if date.Stage == a.InterviewStage {
+				return
+			}
+		}
+		if validStage(a.InterviewStage) && len(a.Milestones) < 100 {
+			a.Milestones = append(a.Milestones, InterviewDate{Stage: a.InterviewStage, Date: today})
+		}
+		return
 	}
 	if a.Status == "interview" {
 		var date *string
