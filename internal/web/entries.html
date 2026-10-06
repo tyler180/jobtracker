@@ -28,7 +28,7 @@
 {{if or .Application.AppliedDate .Application.ResponseDate .Application.InterviewDates}}<div class="date-wrap"><dl class="dates">
 {{with .Application.AppliedDate}}<div><dt>Applied date</dt><dd>{{.}}</dd></div>{{end}}
 {{with .Application.ResponseDate}}<div><dt>Response date</dt><dd>{{.}}</dd></div>{{end}}
-{{range .Application.InterviewDates}}<div><dt>{{.Label}}</dt><dd>{{.Date}}</dd></div>{{end}}
+{{range .Application.InterviewDates}}<div><dt>{{.Label}}</dt><dd>{{.Date}}{{with .TimeLabel}}<br>{{.}}{{end}}</dd></div>{{end}}
 </dl></div>{{end}}
 {{if or .Application.InterviewNotes .Application.NextSteps}}<div class="notes-grid">{{with .Application.InterviewNotes}}<details class="note-panel"><summary>Interview notes</summary><div class="text">{{.}}</div></details>{{end}}{{with .Application.NextSteps}}<details class="note-panel"><summary>Next steps</summary><div class="text">{{.}}</div></details>{{end}}</div>{{end}}
 </article>

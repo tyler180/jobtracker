@@ -93,6 +93,9 @@ func TestPDFProvidedFixture(t *testing.T) {
 	}
 	var j jobs.Job
 	json.Unmarshal(w.Body.Bytes(), &j)
+	if j.Application.PayMin != "130000" || j.Application.PayMax != "180000" || j.Application.PayType != "salary" {
+		t.Fatal("PDF pay not inferred", j.Application)
+	}
 	for _, text := range []string{"Cloud Engineer", "130,000", "180,000", "Jack Harris"} {
 		if !strings.Contains(j.DescriptionText, text) {
 			t.Fatalf("missing %s", text)
