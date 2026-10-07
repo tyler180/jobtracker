@@ -4,6 +4,8 @@ A self-hosted Go app that saves job descriptions before the posting disappears. 
 
 PDF uploads extract text for review before saving (up to 5 MB and 64,000 bytes of extracted text). The archive keeps the reviewed text, not the original PDF. Scanned or encrypted PDFs need a pasted description. Pay ranges are optional USD amounts, with annual salary or hourly rate, and can be edited later.
 
+On the first startup after this update, existing entries with both pay amounts blank are backfilled from their saved descriptions when a single clear USD salary or hourly range can be extracted. Existing amounts and conflicting pay types are preserved. Descriptions, save dates, and tracking details stay unchanged. The archive stores `.pay-backfill-v1` after successful completion, so later restarts preserve pay you deliberately clear. Keep this file with archive backups. An interrupted backfill safely resumes on the next startup.
+
 ## Run locally
 
 Requires Go 1.26 or newer:
