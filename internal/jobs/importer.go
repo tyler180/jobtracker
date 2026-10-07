@@ -41,9 +41,9 @@ func parse(raw string) (target, error) {
 		return target{}, ErrURL
 	}
 	host := strings.ToLower(u.Hostname())
-	known := host == "www.brixton.net" || host == "brixton.net" || host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
+	known := host == "octane.co" || host == "www.octane.co" || host == "www.brixton.net" || host == "brixton.net" || host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
 	if !known {
-		for _, providerHost := range []string{"www.brixton.net", "brixton.net", "www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
+		for _, providerHost := range []string{"octane.co", "www.octane.co", "www.brixton.net", "brixton.net", "www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
 			if strings.HasPrefix(host, providerHost+".") {
 				return target{}, ErrURL
 			}
@@ -58,6 +58,13 @@ func parse(raw string) (target, error) {
 	}
 	t := target{}
 	switch {
+	case host == "octane.co" || host == "www.octane.co":
+		query, err := url.ParseQuery(u.RawQuery)
+		if err != nil || strings.Join(p, "/") != "o/who-we-are/careers/jobs-open" || len(query["gh_jid"]) != 1 || !numericID.MatchString(query.Get("gh_jid")) {
+			return t, ErrURL
+		}
+		id := query.Get("gh_jid")
+		t = target{"greenhouse", "Octane", id, "https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=" + id, "https://boards-api.greenhouse.io/v1/boards/octanelending/jobs/" + id}
 	case host == "www.brixton.net" || host == "brixton.net":
 		query, err := url.ParseQuery(u.RawQuery)
 		if err != nil || len(p) != 1 || p[0] != "job-detail" || len(query["job"]) != 1 || !segment.MatchString(query.Get("job")) || len(query.Get("job")) > 250 {

@@ -43,6 +43,44 @@ func TestRejectURLs(t *testing.T) {
 		}
 	}
 }
+
+func TestOctaneImport(t *testing.T) {
+	canonical := "https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=8015921003"
+	for _, raw := range []string{canonical, canonical + "&utm_source=test#application", "https://www.octane.co/o/who-we-are/careers/jobs-open?gh_jid=8015921003"} {
+		t.Run(raw, func(t *testing.T) {
+			client := &http.Client{Transport: transport(func(r *http.Request) (*http.Response, error) {
+				if r.URL.String() != "https://boards-api.greenhouse.io/v1/boards/octanelending/jobs/8015921003" || r.Header.Get("Accept") != "application/json" {
+					t.Fatalf("unexpected request: %s %v", r.URL, r.Header)
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"title":"Senior Software Engineer - Infrastructure","location":{"name":"Remote"},"content":"&lt;h2&gt;Requirements&lt;/h2&gt;&lt;p&gt;Build infrastructure &amp;amp; services.&lt;/p&gt;"}`))}, nil
+			})}
+			j, err := (Importer{client}).Fetch(context.Background(), raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if j.Company != "Octane" || j.Provider != "greenhouse" || j.URL != canonical || j.Title != "Senior Software Engineer - Infrastructure" || j.Location != "Remote" || j.DescriptionText != "Requirements\n\nBuild infrastructure & services." {
+				t.Fatalf("unexpected posting: %+v", j)
+			}
+		})
+	}
+}
+
+func TestRejectOctaneURLs(t *testing.T) {
+	for _, raw := range []string{
+		"https://octane.co/o/who-we-are/careers/jobs-open/",
+		"https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=abc",
+		"https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=0",
+		"https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=8015921003&gh_jid=123",
+		"https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=8015921003&bad=%zz",
+		"https://octane.co/other/?gh_jid=8015921003",
+		"https://octane.co.evil.test/o/who-we-are/careers/jobs-open/?gh_jid=8015921003",
+		"https://octane.co:444/o/who-we-are/careers/jobs-open/?gh_jid=8015921003",
+	} {
+		if _, err := parse(raw); err == nil {
+			t.Errorf("accepted %s", raw)
+		}
+	}
+}
 func TestFailedImports(t *testing.T) {
 	for _, c := range []struct {
 		status int
