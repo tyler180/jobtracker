@@ -26,6 +26,12 @@ func main() {
 		slog.Error("open archive", "error", err)
 		os.Exit(1)
 	}
+	updated, err := store.BackfillPay()
+	if err != nil {
+		slog.Error("backfill archived pay", "updated", updated, "error", err)
+		os.Exit(1)
+	}
+	slog.Info("archived pay backfill complete", "updated", updated)
 	client := jobs.NewClient()
 	defer client.CloseIdleConnections()
 	server := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: web.New(store, jobs.Importer{Client: client}), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}

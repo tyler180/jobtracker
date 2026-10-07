@@ -57,11 +57,15 @@ func (s *Store) Save(j Job) (Job, bool, error) {
 }
 
 func (s *Store) write(j Job) error {
-	path := filepath.Join(s.dir, j.ID+".json")
 	b, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {
 		return err
 	}
+	return s.writeFile(j.ID+".json", b)
+}
+
+func (s *Store) writeFile(name string, b []byte) error {
+	path := filepath.Join(s.dir, name)
 	f, err := os.CreateTemp(s.dir, ".posting-*")
 	if err != nil {
 		return err
@@ -94,6 +98,10 @@ func (s *Store) write(j Job) error {
 func (s *Store) List() ([]Job, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.list()
+}
+
+func (s *Store) list() ([]Job, error) {
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
 		return nil, err
