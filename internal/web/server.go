@@ -100,7 +100,7 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		fail(w, 415, "Use application/json without content encoding")
 		return
 	}
-	allowed := []string{"url", "description_text", "company", "title", "status", "interview_stage", "interview_notes", "next_steps", "pay_min", "pay_max", "pay_type", "milestones", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
+	allowed := []string{"url", "description_text", "company", "title", "status", "interview_stage", "general_notes", "interview_notes", "next_steps", "pay_min", "pay_max", "pay_type", "milestones", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"}
 	if preview {
 		allowed = []string{"url", "description_text"}
 	}
