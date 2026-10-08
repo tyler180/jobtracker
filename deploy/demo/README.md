@@ -1,6 +1,6 @@
 # Public read-only demo
 
-Build this checkout into an image that supports `DEMO_MODE=true`, then replace `jobtracker-demo:local` in `app.yaml` with its published digest before deploying to a cluster. Existing released images do not support this mode.
+Build this checkout into an image that supports `DEMO_MODE=true`, then replace `jobtracker-demo:local` in `app.yaml` with its published digest before deploying to a cluster. Demo mode is available in v0.2.31 and later.
 
 `kubectl kustomize deploy/demo` renders a separate `jobtracker-demo` namespace, Deployment and Service. Storage is a 64 MiB `emptyDir`; there is no private archive PVC. `TMPDIR=/data` keeps demo temporary files on that volume. Each process creates a fresh directory and seeds six fictional applications, ignoring `DATA_DIR`.
 
@@ -14,4 +14,4 @@ For a local preview:
 DEMO_MODE=true LISTEN_ADDR=127.0.0.1:8081 go run ./cmd/jobtracker
 ```
 
-The normal deployment remains independent. This directory is a deployment template; it is not registered with Argo CD or publicly routed yet.
+The normal deployment remains independent. This directory is a reusable deployment template. The live demo is registered separately in [Talos GitOps](https://github.com/tyler180/talos-gitops/tree/main/applications/jobtracker-demo) and is available at [jobtracker-demo.749rmw.com](https://jobtracker-demo.749rmw.com).

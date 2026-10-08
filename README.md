@@ -4,7 +4,13 @@ A self-hosted Go app that saves job descriptions before the posting disappears. 
 
 PDF uploads extract text for review before saving (up to 5 MB and 64,000 bytes of extracted text). The archive keeps the reviewed text, not the original PDF. Scanned or encrypted PDFs need a pasted description. Pay ranges are optional USD amounts, with annual salary or hourly rate, and can be edited later.
 
-On the first startup after this update, existing entries with both pay amounts blank are backfilled from their saved descriptions when a single clear USD salary or hourly range can be extracted. Existing amounts and conflicting pay types are preserved. Descriptions, save dates, and tracking details stay unchanged. The archive stores `.pay-backfill-v1` after successful completion, so later restarts preserve pay you deliberately clear. Keep this file with archive backups. An interrupted backfill safely resumes on the next startup.
+## Public demo
+
+**[Try Jobtracker → https://jobtracker-demo.749rmw.com](https://jobtracker-demo.749rmw.com)**
+
+The public demo contains six fictional applications with example salaries, interview dates, notes, next steps, and saved job descriptions. Browse the cards, search, filter by status or date, change the sort order, and read the archived descriptions. All companies, postings, and application details are mock data.
+
+The demo is read-only: adding or editing entries, deleting records, importing URLs, and uploading PDFs are disabled. These restrictions are enforced by the server, not just hidden in the interface. The demo runs separately from the private tracker and never mounts its archive.
 
 ## Run locally
 
@@ -14,7 +20,7 @@ Requires Go 1.26 or newer:
 go run ./cmd/jobtracker
 ```
 
-Open http://127.0.0.1:8080. Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. The application form fills company (the provider board/tenant identifier, which you can correct) and job title automatically when you enter a posting URL; you can override it. A blank title at save time uses the title extracted from the posting. Previewing a URL does not save it. The application form records your company name, job title, posting URL, and status: applied, waiting for response, not moving forward, or interview. The main page shows searchable application cards with status, recorded dates, notes, and links to archived descriptions. Choose **Add entry** to open the posting import form, or **Edit entry** on a card to update its details. Applied and response dates are the basic fields. Use **Add date** to record an initial screening or a numbered interview round; multiple dates and rounds beyond round 3 are supported, and dates can be removed individually. Existing screening and round dates remain available when opening older entries. Interview notes and next steps stay editable in every status. Saved-only postings can be edited without marking them applied. **Delete entry** asks for confirmation before removing the application and saved description. Editing details while keeping the same status and stage preserves blank dates.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). Postings are saved as individual JSON files under `./data`. They survive server restarts. Back up this directory; copying only the app does not preserve your archive. The application form fills company (the provider board/tenant identifier, which you can correct) and job title automatically when you enter a posting URL; you can override it. A blank title at save time uses the title extracted from the posting. Previewing a URL does not save it. The application form records your company name, job title, posting URL, and status: applied, waiting for response, not moving forward, or interview. The main page shows searchable application cards with status, recorded dates, notes, and links to archived descriptions. Choose **Add entry** to open the posting import form, or **Edit entry** on a card to update its details. Applied and response dates are the basic fields. Use **Add date** to record an initial screening or a numbered interview round; multiple dates and rounds beyond round 3 are supported, and dates can be removed individually. Existing screening and round dates remain available when opening older entries. Interview notes and next steps stay editable in every status. Saved-only postings can be edited without marking them applied. **Delete entry** asks for confirmation before removing the application and saved description. Editing details while keeping the same status and stage preserves blank dates.
 
 For Ashby, Greenhouse, and Workday, the archived company field is the provider's board/tenant identifier rather than a verified legal company name. Upstart, Ford, and Principal use their company names. LinkedIn and generic job pages use the company published in the posting; pasted descriptions use extracted or entered metadata. Saving a URL again retains the first snapshot, without overwriting its description or save date.
 
@@ -23,12 +29,15 @@ Configuration:
 | Variable | Default | Purpose |
 |---|---|---|
 | `LISTEN_ADDR` | `127.0.0.1:8080` | HTTP listen address |
-| `DATA_DIR` | `./data` | Persistent archive directory |
+| `DATA_DIR` | `./data` | Persistent archive directory; ignored in demo mode |
+| `DEMO_MODE` | `false` | Set to `true` for the read-only fictional demo; other values are rejected |
+| `TMPDIR` | OS default | Temporary directory used by demo mode; must be writable |
 
 ## Supported URLs
 
 - Ashby: `https://jobs.ashbyhq.com/{board}/{posting-id}` (also `/application`). Uses the public board API and selects the matching posting.
 - Greenhouse: `https://boards.greenhouse.io/{board}/jobs/{id}` or `https://job-boards.greenhouse.io/{board}/jobs/{id}`. Corresponding EU hosts are also accepted.
+- Brixton: `https://www.brixton.net/job-detail/?job={id}`. Reads the visible title, location, job ID, and full description; records the company as The Brixton Group.
 - Octane: `https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid={id}` (also `www.octane.co`). Uses Octane's public Greenhouse API to retrieve the full posting, records the company as Octane, and retains the Octane source URL without tracking parameters.
 - LinkedIn: `https://www.linkedin.com/jobs/view/{id}/` or a title/company slug ending in the numeric job ID. `linkedin.com` links are also accepted and canonicalized to the same numeric URL. Uses LinkedIn’s public guest posting endpoint, extracting the full **About the job** description, posting company, title, and location. No account or cookies are used. If LinkedIn requires sign-in, blocks the request, or omits the description, paste the About the job text and enter any missing company/title fields.
 - Upstart: `https://careers.upstart.com/jobs/{slug-and-UUID}`. Extracts the rendered title and description. If the site blocks automated requests, preview offers editable company/title suggestions from the URL and asks you to paste the description; it does not save an incomplete job.
@@ -38,7 +47,7 @@ Ford Motor Company (`www.careers.ford.com/job/.../48560/...`) and Principal (`ca
 
 Other public HTTPS job pages can be imported when they publish inline Schema.org `JobPosting` data with a company, title, and description. The importer supports standalone objects, arrays, and `@graph` documents; it matches the requested URL and refuses ambiguous postings. Essential query parameters are retained and common tracking parameters are removed. No scripts are executed, schema links are not fetched, and redirects remain disabled. Pages without complete job data, login-only pages, and blocked requests require pasting the description.
 
-Provider-specific URLs are canonicalized and tracking parameters removed. Custom company domains can be imported when they contain complete inline JobPosting data. Short links, redirects, and Greenhouse embedded-board URLs other than the supported Octane links are not supported by the provider-specific importer. Brixton job-detail URLs with a `job` query parameter are supported by extracting the visible title, location, job ID, and full description; the company is recorded as The Brixton Group. For blocked Upstart requests and other careers sites, copy the full description (including its title) into the optional **Job description** field with an optional HTTPS source URL. The form fills company and title from recognizable headings or explicit labels; enter missing fields manually. Your own edits take precedence over suggestions. Saving pasted text makes no outbound request and works even when a site blocks automated imports. Pasted descriptions are stored as plain text (up to 64,000 bytes), with provider `manual`; no original HTML is captured. For entries with a URL, the first saved snapshot is retained on duplicate saves. Each save without a URL creates a separate entry, even if the pasted description is identical. Entries without a URL omit the Original posting link. Tracking query parameters and fragments are also removed from these source URLs. No ATS account or API key is needed. Closed, private, missing, or blocked postings cannot be recovered: save while the job is available. Workday's careers endpoint is not a documented stable public API and may change or differ between tenants. No browser automation or CAPTCHA bypass is attempted.
+Provider-specific URLs are canonicalized and tracking parameters removed. Custom company domains can be imported when they contain complete inline JobPosting data. Short links, redirects, and Greenhouse embedded-board URLs other than the supported Octane links are not supported by the provider-specific importer. For blocked Upstart requests and other careers sites, copy the full description (including its title) into the optional **Job description** field with an optional HTTPS source URL. The form fills company and title from recognizable headings or explicit labels; enter missing fields manually. Your own edits take precedence over suggestions. Saving pasted text makes no outbound request and works even when a site blocks automated imports. Pasted descriptions are stored as plain text (up to 64,000 bytes), with provider `manual`; no original HTML is captured. For entries with a URL, the first saved snapshot is retained on duplicate saves. Each save without a URL creates a separate entry, even if the pasted description is identical. Entries without a URL omit the Original posting link. Tracking query parameters and fragments are also removed from these source URLs. No ATS account or API key is needed. Closed, private, missing, or blocked postings cannot be recovered: save while the job is available. Workday's careers endpoint is not a documented stable public API and may change or differ between tenants. No browser automation or CAPTCHA bypass is attempted.
 
 Provider references:
 
@@ -53,6 +62,8 @@ Open `/` (`/entries` also remains available) to browse saved jobs, application s
 
 Search by company, title, or notes. Start and end dates filter entries that have an **applied, initial screening, or interview round date** within the inclusive range. Saved and response dates do not qualify an entry. Leave either boundary blank for an open-ended range; the start date must not be after the end date. Text search and date filters work together.
 
+Use the status filter to show applied, waiting for response, interview, not moving forward, or saved-only entries.
+
 Sort options are:
 
 - **Applied date — newest to oldest** or **oldest to newest**: sorts by the applied date, with missing applied dates last.
@@ -60,9 +71,29 @@ Sort options are:
 - **Most recent activity**: uses the latest saved, applied, response, screening, or interview date.
 - **Status**: applied, waiting for response, interview, then not moving forward, with saved-only postings last.
 
-Edit dates on the main Job tracker page, where each application row has six date fields and a **Save dates** button. Clearing a date leaves it blank; saving dates does not change status or notes. **Edit** opens the complete application editor.
+The application cards are read-only. In your own tracker, choose **Edit entry** to change application details, dates, pay, notes, or next steps. The public demo omits this control.
+
+## Interview dates and times
+
+Interview dates are stored in `milestones`, an array such as `[{"stage":"initial screening","date":"2026-10-05"},{"stage":"round 4","date":"2026-10-12"}]`. Up to 100 dates can be recorded, including repeated stages. Supply `[]` to remove all interview dates; omit the collection on an update to preserve it. Screening and round 1–3 fields in older files are displayed and converted when edited through the form. Legacy application date fields use `YYYY-MM-DD`: `applied_date`, `response_date`, `screening_date`, `round_1_date`, `round_2_date`, and `round_3_date`. The form defaults the applied date to today in your browser's timezone. When dates are blank, the server defaults the applied date, the response date for interview/rejection status, and the selected interview stage date to today in America/Denver. Dates for events that have not occurred remain blank. Provided dates and dates from prior interview stages are retained. Existing files are not backfilled until edited; omitted date fields on updates preserve existing values.
+
+Interview milestones may include optional `time` (`HH:MM`) and `timezone` (an IANA name such as `America/Denver`). The form defaults the timezone to America/Denver; cards display the entered local time and timezone. Dates remain separate for filtering and date-only records stay valid. Invalid times/timezones and times skipped by daylight saving transitions are rejected.
+
+## Pay suggestions and existing archives
+
+Pay suggestions are extracted from explicit USD salary/annual or hourly amounts in imported descriptions, pasted text, and PDF text. Conflicting rates leave pay blank for review, and manual form edits take precedence. Existing entries have a **Suggest pay from saved description** button; suggestions are saved only with your changes.
+
+On the first startup without a completed pay-backfill marker, existing entries with both pay amounts blank are backfilled from their saved descriptions when a single clear USD salary or hourly range can be extracted. Existing amounts and conflicting pay types are preserved. Descriptions, save dates, and tracking details stay unchanged. The archive stores `.pay-backfill-v1` after successful completion, so later restarts preserve pay you deliberately clear. Keep this file with archive backups. An interrupted backfill safely resumes on the next startup.
+
+## PDF importing
+
+Local PDF importing requires Poppler (`pdftotext`) on PATH; the container includes it. On macOS, install it with `brew install poppler`.
+
+`POST /api/jobs/pdf` accepts a raw `application/pdf` body without content encoding and returns extracted text and inferred metadata without saving. It shares the four import slots, caps uploads at 5 MiB, extracted text at 64,000 bytes, and processing at 15 seconds. Text is processed through stdin/stdout without temporary files.
 
 ## API
+
+These write endpoints apply to a normal tracker. In demo mode, every method other than `GET` or `HEAD` returns `403`, including import previews and PDF uploads. `/new` and `/edit` redirect to the application list.
 
 ```sh
 curl -X POST http://127.0.0.1:8080/api/jobs \
@@ -87,13 +118,13 @@ curl -X POST http://127.0.0.1:8080/api/jobs \
 
 To create a tracked application, include `company`, `title`, and `status` alongside `url` or `description_text` in `POST /api/jobs`. Optional fields are `pay_min`, `pay_max`, `pay_type` (`salary` or `hourly`), `interview_stage`, `interview_notes`, `next_steps`, and `milestones`; an interview stage is required for interview status. Application fields are stored separately from the immutable posting snapshot. Duplicate imports preserve both the first snapshot and existing tracking details.
 
-`PATCH /api/jobs/{id}/dates` updates only the supplied date fields (the six fields listed below). Use an empty string to clear a date; omitted dates and all other application fields are preserved, with no automatic date defaults. This works for tracked applications and saved postings without marking them applied. Invalid dates or fields return 400 and missing jobs return 404.
+`PATCH /api/jobs/{id}/dates` updates only the supplied date fields (the six legacy fields listed under Interview dates and times). Use an empty string to clear a date; omitted dates and all other application fields are preserved, with no automatic date defaults. This works for tracked applications and saved postings without marking them applied. Invalid dates or fields return 400 and missing jobs return 404.
 
 `DELETE /api/jobs/{id}` removes the posting and application, returning 200 with `{"deleted":true}` or 404 for a missing job.
 
 `PUT /api/jobs/{id}/application` replaces tracking details using the same application fields (without `url`). Company and title are required and limited to 300 bytes each; notes and next steps are limited to 10,000 bytes each. Invalid fields return 400 and missing jobs return 404. `GET /jobs/{id}` displays the escaped, locally archived description without fetching the original posting.
 
-The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Provider imports use their specific endpoints; generic imports fetch the requested public HTTPS page, with no proxies or redirects and no connections to private IP addresses. The app has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. Do not expose the service publicly before access controls are configured. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
+The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Provider imports use their specific endpoints; generic imports fetch the requested public HTTPS page, with no proxies or redirects and no connections to private IP addresses. The app has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. Protect a normal tracker with authentication before exposing it publicly: it contains personal records and supports unauthenticated writes. The public demo uses the separate read-only mode with fictional data. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
 
 ## Container and Talos GitOps
 
@@ -112,6 +143,27 @@ To integrate with `tyler180/talos-gitops`, follow the [reusable release workflow
 
 The release workflow publishes to GHCR and proposes GitOps changes; Argo performs cluster reconciliation. CI does not receive cluster credentials. Authentication and public routing remain configured in GitOps independently of the application release pipeline.
 
+### Run your own read-only demo
+
+```sh
+DEMO_MODE=true LISTEN_ADDR=127.0.0.1:8081 go run ./cmd/jobtracker
+```
+
+Open [http://127.0.0.1:8081](http://127.0.0.1:8081). Demo mode ignores `DATA_DIR`, creates a fresh temporary archive at startup, and seeds six fictional applications. It shows a mock-data banner and removes add/edit controls. Restarting creates a fresh demo archive; no visitor changes can be saved.
+
+To preview a container with a read-only root filesystem, give it writable temporary storage:
+
+```sh
+docker run --rm -p 127.0.0.1:8081:8080 \
+  --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+  --tmpfs /data:rw,noexec,nosuid,size=64m,uid=65532,gid=65532,mode=0700 \
+  -e DEMO_MODE=true -e TMPDIR=/data jobtracker:local
+```
+
+[The demo deployment template](deploy/demo/README.md) renders a separate `jobtracker-demo` namespace, Deployment, and Service, with a 64 MiB `emptyDir` instead of a persistent archive volume. Its optional gateway routes are excluded from the reusable template until you configure your own image and routing.
+
+The deployed demo is registered separately in [the Talos GitOps repository](https://github.com/tyler180/talos-gitops/tree/main/applications/jobtracker-demo), with its own digest-pinned image, Argo application, storage, and route. Automatic sync and self-healing are enabled; pruning is disabled. The normal release pipeline promotes the private tracker. Demo image updates are separate reviewed GitOps changes.
+
 ## Verification
 
 ```sh
@@ -119,20 +171,7 @@ go test -race ./...
 go vet ./...
 go build ./cmd/jobtracker
 kubectl kustomize deploy
+kubectl kustomize deploy/demo
 ```
 
-Tests cover provider payloads, URL validation, absent/malformed descriptions, readable conversion, persistent first-snapshot behavior, and HTTP request boundaries. GitHub Actions also builds the container. Live smoke verification on October 2, 2026 saved a public posting from Ashby's own board, Cloudflare's Greenhouse board, and NVIDIA's Workday site. This is compatibility evidence for those endpoints, not a guarantee for every tenant.
-
-Interview dates are stored in `milestones`, an array such as `[{"stage":"initial screening","date":"2026-10-05"},{"stage":"round 4","date":"2026-10-12"}]`. Up to 100 dates can be recorded, including repeated stages. Supply `[]` to remove all interview dates; omit the collection on an update to preserve it. Screening and round 1–3 fields in older files are displayed and converted when edited through the form. Legacy application date fields use `YYYY-MM-DD`: `applied_date`, `response_date`, `screening_date`, `round_1_date`, `round_2_date`, and `round_3_date`. The form defaults the applied date to today in your browser's timezone. When dates are blank, the server defaults the applied date, the response date for interview/rejection status, and the selected interview stage date to today in America/Denver. Dates for events that have not occurred remain blank. Provided dates and dates from prior interview stages are retained. Existing files are not backfilled until edited; omitted date fields on updates preserve existing values.
-
-Local PDF importing requires Poppler (`pdftotext`) on PATH; the container includes it. On macOS, install it with `brew install poppler`.
-
-`POST /api/jobs/pdf` accepts a raw `application/pdf` body without content encoding and returns extracted text and inferred metadata without saving. It shares the four import slots, caps uploads at 5 MiB, extracted text at 64,000 bytes, and processing at 15 seconds. Text is processed through stdin/stdout without temporary files.
-
-Pay suggestions are extracted from explicit USD salary/annual or hourly amounts in imported descriptions, pasted text, and PDF text. Conflicting rates leave pay blank for review, and manual form edits take precedence. Existing entries have a **Suggest pay from saved description** button; suggestions are saved only with your changes.
-
-Interview milestones may include optional `time` (`HH:MM`) and `timezone` (an IANA name such as `America/Denver`). The form defaults the timezone to America/Denver; cards display the entered local time and timezone. Dates remain separate for filtering and date-only records stay valid. Invalid times/timezones and times skipped by daylight saving transitions are rejected.
-
-### Read-only public demo
-
-Set `DEMO_MODE=true` to run a fictional, read-only demo. It creates a fresh temporary archive, ignores `DATA_DIR`, blocks edits/imports/uploads at the server, and removes add/edit links. See [the separate demo deployment](deploy/demo/README.md) for local preview and isolated Kubernetes resources.
+Tests cover provider payloads, URL validation, absent/malformed descriptions, readable conversion, persistent first-snapshot behavior, application updates, pay inference and backfill, PDF processing, interview dates and timezones, and HTTP request boundaries. Demo tests verify mock-data banners, hidden write controls, blocked mutation/import/upload requests, and unchanged records after rejected requests. GitHub Actions also builds the container. Live smoke verification on October 2, 2026 saved a public posting from Ashby's own board, Cloudflare's Greenhouse board, and NVIDIA's Workday site. This is compatibility evidence for those endpoints, not a guarantee for every tenant.
