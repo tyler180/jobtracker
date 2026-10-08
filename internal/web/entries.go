@@ -2,6 +2,7 @@ package web
 
 import (
 	_ "embed"
+	"github.com/tyler180/jobtracker/internal/jobs"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -20,7 +21,10 @@ func (s *Server) entries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := entriesPage.Execute(w, entries); err != nil {
+	if err := entriesPage.Execute(w, struct {
+		Entries []jobs.Job
+		Demo    bool
+	}{entries, s.demo}); err != nil {
 		slog.Error("render entries", "error", err)
 	}
 }

@@ -21,10 +21,20 @@ type Server struct {
 	store    *jobs.Store
 	importer Fetcher
 	slots    chan struct{}
+	demo     bool
 }
 
 func New(store *jobs.Store, importer Fetcher) http.Handler {
-	s := &Server{store: store, importer: importer, slots: make(chan struct{}, 4)}
+	return newServer(store, importer, false)
+}
+
+// NewDemo serves a read-only archive without import or mutation access.
+func NewDemo(store *jobs.Store) http.Handler {
+	return newServer(store, nil, true)
+}
+
+func newServer(store *jobs.Store, importer Fetcher, demo bool) http.Handler {
+	s := &Server{store: store, importer: importer, slots: make(chan struct{}, 4), demo: demo}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /{$}", s.entries)
@@ -44,6 +54,16 @@ func New(store *jobs.Store, importer Fetcher) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
+		if demo {
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				fail(w, http.StatusForbidden, "This demo is read-only")
+				return
+			}
+			if r.URL.Path == "/new" || r.URL.Path == "/edit" {
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+				return
+			}
+		}
 		mux.ServeHTTP(w, r)
 	})
 }

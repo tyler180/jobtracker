@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobtracker-demo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jobtracker-demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jobtracker-demo
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: jobtracker-demo
+          # Set a published digest containing DEMO_MODE support before cluster deployment.
+          image: jobtracker-demo:local
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: LISTEN_ADDR
+              value: ':8080'
+            - name: DATA_DIR
+              value: /data
+            - name: DEMO_MODE
+              value: "true"
+            - name: TMPDIR
+              value: /data
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobtracker-demo
+spec:
+  selector:
+    app.kubernetes.io/name: jobtracker-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
