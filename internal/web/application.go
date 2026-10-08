@@ -70,7 +70,7 @@ func decodeFields(w http.ResponseWriter, r *http.Request, allowed []string) (map
 	return out, nil
 }
 func applicationFrom(f map[string]string) jobs.Application {
-	a := jobs.Application{PayMin: f["pay_min"], PayMax: f["pay_max"], PayType: f["pay_type"], AppliedDate: f["applied_date"], ResponseDate: f["response_date"], ScreeningDate: f["screening_date"], Round1Date: f["round_1_date"], Round2Date: f["round_2_date"], Round3Date: f["round_3_date"], Company: f["company"], Title: f["title"], Status: f["status"], InterviewStage: f["interview_stage"], InterviewNotes: f["interview_notes"], NextSteps: f["next_steps"]}
+	a := jobs.Application{PayMin: f["pay_min"], PayMax: f["pay_max"], PayType: f["pay_type"], AppliedDate: f["applied_date"], ResponseDate: f["response_date"], ScreeningDate: f["screening_date"], Round1Date: f["round_1_date"], Round2Date: f["round_2_date"], Round3Date: f["round_3_date"], Company: f["company"], Title: f["title"], Status: f["status"], InterviewStage: f["interview_stage"], GeneralNotes: f["general_notes"], InterviewNotes: f["interview_notes"], NextSteps: f["next_steps"]}
 	if raw, present := f["milestones"]; present {
 		json.Unmarshal([]byte(raw), &a.Milestones)
 		a.ScreeningDate = ""
@@ -125,7 +125,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		fail(w, 415, "Use application/json without content encoding")
 		return
 	}
-	f, err := decodeFields(w, r, []string{"company", "title", "status", "interview_stage", "interview_notes", "next_steps", "pay_min", "pay_max", "pay_type", "milestones", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"})
+	f, err := decodeFields(w, r, []string{"company", "title", "status", "interview_stage", "general_notes", "interview_notes", "next_steps", "pay_min", "pay_max", "pay_type", "milestones", "applied_date", "response_date", "screening_date", "round_1_date", "round_2_date", "round_3_date"})
 	if err != nil {
 		fail(w, 400, err.Error())
 		return
@@ -161,7 +161,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(previous.Application.Milestones)
 		f["milestones"] = string(b)
 	}
-	for key, value := range map[string]string{"pay_min": previous.Application.PayMin, "pay_max": previous.Application.PayMax, "pay_type": previous.Application.PayType} {
+	for key, value := range map[string]string{"general_notes": previous.Application.GeneralNotes, "pay_min": previous.Application.PayMin, "pay_max": previous.Application.PayMax, "pay_type": previous.Application.PayType} {
 		if _, present := f[key]; !present {
 			f[key] = value
 		}

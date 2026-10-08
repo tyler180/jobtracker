@@ -75,6 +75,7 @@ type Application struct {
 	Title          string `json:"title"`
 	Status         string `json:"status"`
 	InterviewStage string `json:"interview_stage"`
+	GeneralNotes   string `json:"general_notes"`
 	InterviewNotes string `json:"interview_notes"`
 	NextSteps      string `json:"next_steps"`
 }
@@ -187,6 +188,9 @@ func (a Application) Validate() error {
 	}
 	if a.Status == "interview" && a.InterviewStage == "" {
 		return errors.New("Choose an interview stage")
+	}
+	if len(a.GeneralNotes) > 10000 {
+		return errors.New("General notes must be at most 10000 bytes")
 	}
 	if len(a.InterviewNotes) > 10000 || len(a.NextSteps) > 10000 {
 		return errors.New("Interview notes and next steps must be at most 10000 bytes each")

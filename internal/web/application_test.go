@@ -424,3 +424,63 @@ func TestFlexibleInterviewDates(t *testing.T) {
 		t.Fatal("removed dates reappeared")
 	}
 }
+
+func TestGeneralNotesLifecycle(t *testing.T) {
+	dir := t.TempDir()
+	store, err := jobs.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := New(store, &fake{})
+	send := func(method, path, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	notes := "Question: Why this role?\nAnswer: Build reliable platforms. <script>alert(1)</script>"
+	body, _ := json.Marshal(map[string]string{"url": "https://jobs.ashbyhq.com/acme/abc", "company": "Acme", "title": "Engineer", "general_notes": notes})
+	w := send("POST", "/api/jobs", string(body))
+	if w.Code != 201 {
+		t.Fatal(w.Code, w.Body)
+	}
+	var original jobs.Job
+	if err := json.Unmarshal(w.Body.Bytes(), &original); err != nil {
+		t.Fatal(err)
+	}
+	path := "/api/jobs/" + original.ID + "/application"
+	for _, payload := range []string{`{"company":"Acme","title":"Engineer","status":"applied"}`, `{"company":"Acme","title":"Engineer","status":"waiting for response"}`} {
+		w = send("PUT", path, payload)
+		if w.Code != 200 {
+			t.Fatal(w.Code, w.Body)
+		}
+	}
+	reopened, err := jobs.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := reopened.Get(original.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Application.GeneralNotes != notes || saved.DescriptionText != original.DescriptionText || saved.Title != original.Title || !saved.SavedAt.Equal(original.SavedAt) {
+		t.Fatalf("Notes or snapshot changed: %+v", saved)
+	}
+	w = send("GET", "/", "")
+	if !strings.Contains(w.Body.String(), "<summary>General notes</summary>") || !strings.Contains(w.Body.String(), "&lt;script&gt;") || strings.Contains(w.Body.String(), "<script>alert(1)</script>") {
+		t.Fatal("Missing or unescaped general notes")
+	}
+	body, _ = json.Marshal(map[string]string{"company": "Acme", "title": "Engineer", "general_notes": strings.Repeat("x", 10001)})
+	if w = send("PUT", path, string(body)); w.Code != 400 {
+		t.Fatal(w.Code, w.Body)
+	}
+	w = send("PUT", path, `{"company":"Acme","title":"Engineer","general_notes":""}`)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
+	saved, err = reopened.Get(original.ID)
+	if err != nil || saved.Application.GeneralNotes != "" {
+		t.Fatal("Notes were not cleared", err)
+	}
+}

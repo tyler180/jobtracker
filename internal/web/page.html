@@ -68,6 +68,7 @@ function tracking(parent,a={},newEntry=false){
  existing.forEach(addDate);
  const add=el('button','+ Add date');add.type='button';add.className='secondary';add.addEventListener('click',()=>{if(dates.children.length<100)addDate()});parent.append(add);
  parent.closest('form').trackingData=()=>({milestones:[...dates.children].map(row=>row.dateValue()),interview_stage:status.value==='interview'?(stage.value==='custom'?'round '+round.value:stage.value):''});
+ const notes=field(parent,'General notes','general_notes',a.general_notes,'textarea');notes.maxLength=10000;notes.rows=8;notes.placeholder='Record application questions and your answers, or anything else about this position.';
  field(parent,'Interview notes','interview_notes',a.interview_notes,'textarea').maxLength=10000;
  field(parent,'Next steps','next_steps',a.next_steps,'textarea').maxLength=10000;
 }
