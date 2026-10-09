@@ -35,6 +35,8 @@ Configuration:
 
 ## Supported URLs
 
+- ADP: `https://myjobs.adp.com/{company}/cx/job-details?reqId={id}`. Reads the public career-site posting, including location, screening requirements, and salary text for editable pay suggestions.
+
 - Ashby: `https://jobs.ashbyhq.com/{board}/{posting-id}` (also `/application`). Uses the public board API and selects the matching posting.
 - Greenhouse: `https://boards.greenhouse.io/{board}/jobs/{id}` or `https://job-boards.greenhouse.io/{board}/jobs/{id}`. Corresponding EU hosts are also accepted.
 - Brixton: `https://www.brixton.net/job-detail/?job={id}`. Reads the visible title, location, job ID, and full description; records the company as The Brixton Group.
