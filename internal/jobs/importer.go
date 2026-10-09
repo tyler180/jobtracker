@@ -41,9 +41,9 @@ func parse(raw string) (target, error) {
 		return target{}, ErrURL
 	}
 	host := strings.ToLower(u.Hostname())
-	known := host == "octane.co" || host == "www.octane.co" || host == "www.brixton.net" || host == "brixton.net" || host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
+	known := host == "jobs.apple.com" || host == "octane.co" || host == "www.octane.co" || host == "www.brixton.net" || host == "brixton.net" || host == "www.careers.ford.com" || host == "careers.principal.com" || host == "www.linkedin.com" || host == "linkedin.com" || host == "careers.upstart.com" || host == "jobs.ashbyhq.com" || host == "boards.greenhouse.io" || host == "job-boards.greenhouse.io" || host == "boards.eu.greenhouse.io" || host == "job-boards.eu.greenhouse.io" || strings.HasSuffix(host, ".myworkdayjobs.com")
 	if !known {
-		for _, providerHost := range []string{"octane.co", "www.octane.co", "www.brixton.net", "brixton.net", "www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
+		for _, providerHost := range []string{"jobs.apple.com", "octane.co", "www.octane.co", "www.brixton.net", "brixton.net", "www.careers.ford.com", "careers.principal.com", "www.linkedin.com", "linkedin.com", "careers.upstart.com", "jobs.ashbyhq.com", "boards.greenhouse.io", "job-boards.greenhouse.io", "boards.eu.greenhouse.io", "job-boards.eu.greenhouse.io"} {
 			if strings.HasPrefix(host, providerHost+".") {
 				return target{}, ErrURL
 			}
@@ -58,6 +58,12 @@ func parse(raw string) (target, error) {
 	}
 	t := target{}
 	switch {
+	case host == "jobs.apple.com":
+		if len(p) != 4 || !appleLocale.MatchString(p[0]) || p[1] != "details" || !numericID.MatchString(p[2]) {
+			return t, ErrURL
+		}
+		canonical := "https://jobs.apple.com/" + strings.ToLower(strings.Join(p, "/"))
+		t = target{"apple", "Apple", p[2], canonical, canonical}
 	case host == "octane.co" || host == "www.octane.co":
 		query, err := url.ParseQuery(u.RawQuery)
 		if err != nil || strings.Join(p, "/") != "o/who-we-are/careers/jobs-open" || len(query["gh_jid"]) != 1 || !numericID.MatchString(query.Get("gh_jid")) {
@@ -184,7 +190,7 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 		return Job{}, err
 	}
 	req.Header.Set("Accept", "application/json")
-	if t.provider == "brixton" || t.provider == "upstart" || t.provider == "linkedin" || t.provider == "ford" || t.provider == "principal" || t.provider == "generic" {
+	if t.provider == "apple" || t.provider == "brixton" || t.provider == "upstart" || t.provider == "linkedin" || t.provider == "ford" || t.provider == "principal" || t.provider == "generic" {
 		req.Header.Set("Accept", "text/html")
 	}
 	req.Header.Set("User-Agent", "JobTracker/0.1")
@@ -205,6 +211,10 @@ func (i Importer) Fetch(ctx context.Context, raw string) (Job, error) {
 	}
 	j := Job{Provider: t.provider, Company: t.company, URL: t.canonical}
 	switch t.provider {
+	case "apple":
+		if err := importApple(body, t, &j); err != nil {
+			return Job{}, err
+		}
 	case "brixton":
 		if err := importBrixton(body, t, &j); err != nil {
 			return Job{}, err
