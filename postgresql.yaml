@@ -1,0 +1,35 @@
+services:  
+  db:
+    container_name: PostgreSQL
+    image: postgres
+    mem_limit: 256m
+    cpu_shares: 768
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "marius_DB", "-U", "root"]
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: vault_db
+    volumes:
+      - /volume2/docker/postgresql:/var/lib/postgresql:rw
+    ports:
+      - 2665:5432
+    restart: on-failure:5
+  
+  pgadmin:
+    container_name: pgAdmin
+    image: dpage/pgadmin4:latest
+    user: 0:0
+    mem_limit: 256m
+    cpu_shares: 768
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:5050
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?set in .env}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?set in .env}
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - 2660:5050
+    volumes:
+      - /volume2/docker/postgresadmin:/var/lib/pgadmin:rw
+    restart: on-failure:5

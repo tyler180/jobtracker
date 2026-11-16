@@ -14,7 +14,7 @@ The demo is read-only: adding or editing entries, deleting records, importing UR
 
 ## Run locally
 
-Requires Go 1.26 or newer:
+Requires Go 1.26.11 or newer:
 
 ```sh
 go run ./cmd/jobtracker
@@ -32,6 +32,19 @@ Configuration:
 | `DATA_DIR` | `./data` | Persistent archive directory; ignored in demo mode |
 | `DEMO_MODE` | `false` | Set to `true` for the read-only fictional demo; other values are rejected |
 | `TMPDIR` | OS default | Temporary directory used by demo mode; must be writable |
+| `STORAGE_BACKEND` | `file` | `postgres` enables PostgreSQL storage and mandatory OIDC sign-in |
+| `DATABASE_URL` | unset | Runtime PostgreSQL connection string; required in postgres mode |
+| `PUBLIC_URL` | unset | Canonical HTTPS origin, for example `https://jobtracker.example.com` |
+| `OIDC_ISSUER_URL` | unset | Exact Authentik OIDC issuer URL |
+| `OIDC_CLIENT_ID` | unset | Confidential OIDC client ID |
+| `OIDC_CLIENT_SECRET` | unset | OIDC client secret, supplied through secret storage |
+
+See [PostgreSQL and Authentik setup](docs/authentication.md) before enabling the
+new backend. Schema changes and archive imports are explicit migration commands;
+starting the app never assigns the legacy archive to the first person to sign in.
+Postgres mode does not open `DATA_DIR`. Demo mode ignores PostgreSQL/OIDC settings
+and always uses isolated fictional data.
+
 
 ## Supported URLs
 
@@ -128,7 +141,7 @@ To create a tracked application, include `company`, `title`, and `status` alongs
 
 `PUT /api/jobs/{id}/application` replaces tracking details using the same application fields (without `url`). Company and title are required and limited to 300 bytes each; notes and next steps are limited to 10,000 bytes each. Invalid fields return 400 and missing jobs return 404. `GET /jobs/{id}` displays the escaped, locally archived description without fetching the original posting.
 
-The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Provider imports use their specific endpoints; generic imports fetch the requested public HTTPS page, with no proxies or redirects and no connections to private IP addresses. The app has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. Protect a normal tracker with authentication before exposing it publicly: it contains personal records and supports unauthenticated writes. The public demo uses the separate read-only mode with fictional data. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
+The web page displays escaped plain text, so imported HTML cannot execute scripts. Raw HTML is retained only in JSON. Fetches have a 20-second timeout, an 8 MiB response cap, and four concurrent import slots. Provider imports use their specific endpoints; generic imports fetch the requested public HTTPS page, with no proxies or redirects and no connections to private IP addresses. The default file-backed mode has **no built-in authentication**: use it locally or behind a trusted authenticated gateway. PostgreSQL mode requires OIDC sign-in and enforces per-user ownership on all application routes. Its JSON API requires a valid session cookie and the configured `Origin` for mutations; unauthenticated API requests return 401. Protect the file-backed tracker before exposing it publicly: it contains personal records and supports unauthenticated writes. The public demo uses the separate read-only mode with fictional data. Archive writes use synced temporary files and atomic replacement; use a single process/replica per archive directory. Listing reads the whole archive, suitable for a personal tracker.
 
 ## Container and Talos GitOps
 
@@ -169,6 +182,10 @@ docker run --rm -p 127.0.0.1:8081:8080 \
 The deployed demo is registered separately in [the Talos GitOps repository](https://github.com/tyler180/talos-gitops/tree/main/applications/jobtracker-demo), with its own digest-pinned image, Argo application, storage, and route. Automatic sync and self-healing are enabled; pruning is disabled. The normal release pipeline promotes the private tracker. Demo image updates are separate reviewed GitOps changes.
 
 ## Verification
+
+An offline PostgreSQL migration rehearsal is available separately from the web
+app. See [archive migration testing](docs/postgresql-migration.md) for the data
+model, backup validation, isolated test script, and remaining cutover work.
 
 ```sh
 go test -race ./...

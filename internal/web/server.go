@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/tyler180/jobtracker/internal/identity"
 	"github.com/tyler180/jobtracker/internal/jobs"
 )
 
@@ -18,22 +19,22 @@ type Fetcher interface {
 	Fetch(context.Context, string) (jobs.Job, error)
 }
 type Server struct {
-	store    *jobs.Store
+	store    Store
 	importer Fetcher
 	slots    chan struct{}
 	demo     bool
 }
 
 func New(store *jobs.Store, importer Fetcher) http.Handler {
-	return newServer(store, importer, false)
+	return newServer(fileStore{store}, importer, false)
 }
 
 // NewDemo serves a read-only archive without import or mutation access.
 func NewDemo(store *jobs.Store) http.Handler {
-	return newServer(store, nil, true)
+	return newServer(fileStore{store}, nil, true)
 }
 
-func newServer(store *jobs.Store, importer Fetcher, demo bool) http.Handler {
+func newServer(store Store, importer Fetcher, demo bool) http.Handler {
 	s := &Server{store: store, importer: importer, slots: make(chan struct{}, 4), demo: demo}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
@@ -76,7 +77,7 @@ func fail(w http.ResponseWriter, status int, message string) {
 	reply(w, status, map[string]string{"error": message})
 }
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
-	v, err := s.store.List()
+	v, err := s.store.List(r.Context())
 	if err != nil {
 		slog.Error("read archive", "error", err)
 		fail(w, 500, "Could not read saved jobs")
@@ -201,7 +202,7 @@ func (s *Server) importPosting(w http.ResponseWriter, r *http.Request, preview b
 		application.DefaultDates(jobs.Today())
 		j.Application = application
 	}
-	j, created, err := s.store.Save(j)
+	j, created, err := s.store.Save(r.Context(), j)
 	if err != nil {
 		slog.Error("save failed", "error", err)
 		fail(w, 500, "Could not save the posting")
@@ -220,7 +221,7 @@ var page = template.Must(template.New("home").Parse(pageHTML))
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := page.Execute(w, nil); err != nil {
+	if err := page.Execute(w, struct{ Authenticated bool }{identity.UserID(r.Context()) != ""}); err != nil {
 		slog.Error("render page", "error", err)
 	}
 }
