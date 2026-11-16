@@ -1,3 +1,6 @@
 .git
 data
 jobtracker
+.local-backups
+.env
+postgresql.yaml
